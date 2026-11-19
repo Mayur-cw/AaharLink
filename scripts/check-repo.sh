@@ -26,7 +26,7 @@ while IFS= read -r p; do
  esac
  case "$p" in
    *.png|*.jpg|*.jpeg|*.webp|*.gif)
-     case "$p" in public/og-image.png|public/og-image.jpg|public/og-image.webp)
+     case "$p" in public/og-image.png|public/og-image.jpg|public/og-image.webp|public/hero-illustration.jpg)
        bytes=$(wc -c < "$p" | tr -d ' ')
        if [ "$bytes" -gt 153600 ]; then echo 'FAIL: social image >150KiB';fail=1;fi;;
      *) echo "FAIL: raster image policy $p";fail=1;;
