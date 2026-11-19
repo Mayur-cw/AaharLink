@@ -454,15 +454,15 @@ export type NgoCapacityPatchBody = z.infer<typeof ngoCapacityPatchSchema>;
 // VR-035, VR-036, VR-011
 export const coordinatorOrgDecisionSchema = z
   .object({
-    decision: z.enum(['verify', 'reject', 'suspend'], {
+    decision: z.enum(['approve', 'verify', 'reject', 'suspend'], {
       message: 'That resolution is not allowed in the current state.',
     }),
     reason: z
       .string({ message: 'Add a clear reason for this decision.' })
       .trim()
       .min(10, { message: 'Add a clear reason for this decision.' })
-      .max(500, { message: 'Reason cannot exceed 500 characters.' }),
-    expectedVersion: z.number().int().min(1, { message: 'Organization changed; reload and retry.' }),
+      .max(250, { message: 'Reason cannot exceed 250 characters.' }),
+    expectedVersion: z.number().int().nonnegative({ message: 'Organization changed; reload and retry.' }),
   })
   .strict();
 export type CoordinatorOrgDecisionBody = z.infer<typeof coordinatorOrgDecisionSchema>;
@@ -470,7 +470,7 @@ export type CoordinatorOrgDecisionBody = z.infer<typeof coordinatorOrgDecisionSc
 // VR-035, VR-036, VR-021
 export const coordinatorDonationResolveSchema = z
   .object({
-    decision: z.enum(['dispute', 'cancel'], {
+    decision: z.enum(['openDispute', 'cancelClaim', 'closeReview', 'dispute', 'cancel'], {
       message: 'That resolution is not allowed in the current state.',
     }),
     reason: z
@@ -478,7 +478,7 @@ export const coordinatorDonationResolveSchema = z
       .trim()
       .min(10, { message: 'Add a clear reason for this decision.' })
       .max(500, { message: 'Reason cannot exceed 500 characters.' }),
-    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }),
+    expectedVersion: z.number().int().nonnegative({ message: 'Donation changed; reload its current state.' }),
   })
   .strict();
 export type CoordinatorDonationResolveBody = z.infer<typeof coordinatorDonationResolveSchema>;
@@ -543,6 +543,51 @@ export const auditFilterSchema = z
     entityId: z.string().optional(),
   })
   .strict();
+
+export const coordinatorOrgsQuerySchema = z
+  .object({
+    status: organizationStatusSchema.optional(),
+    q: z.string().max(100).optional(),
+    kind: organizationKindSchema.optional(),
+    cursor: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+export type CoordinatorOrgsQuery = z.infer<typeof coordinatorOrgsQuerySchema>;
+
+export const coordinatorDonationsQuerySchema = z
+  .object({
+    status: donationStatusSchema.optional(),
+    urgent: z.coerce.boolean().optional(),
+    q: z.string().max(100).optional(),
+    cursor: z.string().optional(),
+    sort: z.enum(['deadline', 'newest', 'status']).default('deadline'),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+export type CoordinatorDonationsQuery = z.infer<typeof coordinatorDonationsQuerySchema>;
+
+export const coordinatorAnalyticsQuerySchema = z
+  .object({
+    from: z.string().optional(),
+    to: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+  })
+  .strict();
+export type CoordinatorAnalyticsQuery = z.infer<typeof coordinatorAnalyticsQuerySchema>;
+
+export const coordinatorAuditQuerySchema = z
+  .object({
+    entity: z.enum(['Donation', 'Claim', 'Organization']).optional(),
+    event: z.string().max(60).optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    cursor: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+export type CoordinatorAuditQuery = z.infer<typeof coordinatorAuditQuerySchema>;
 
 export const analyticsQuerySchema = z
   .object({

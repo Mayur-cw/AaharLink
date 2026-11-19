@@ -17,6 +17,9 @@ import type {
   HandlingDeclarations,
   OperationalAnalytics,
   DonationPublicPreview,
+  CoordinatorOrganizationSummary,
+  CoordinatorDonationSummary,
+  CoordinatorDashboardDTO,
 } from '../shared/contracts.js';
 import {
   calculateHaversineDistanceKm,
@@ -496,6 +499,144 @@ export class SqliteRepository {
     return { items, nextCursor };
   }
 
+  listOrganizationsForCoordinator(
+    status?: OrganizationStatus,
+    kind?: OrganizationKind,
+    q?: string,
+    limit: number = 20,
+    cursor?: string
+  ): { items: CoordinatorOrganizationSummary[]; nextCursor: string | null } {
+    let sql = 'SELECT * FROM organizations WHERE 1=1';
+    const params: SqlParam[] = [];
+
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+    if (kind) {
+      sql += ' AND kind = ?';
+      params.push(kind);
+    }
+    if (q) {
+      sql += ' AND (name LIKE ? OR city LIKE ? OR contact_person LIKE ?)';
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    }
+    if (cursor) {
+      sql += ' AND id > ?';
+      params.push(cursor);
+    }
+    sql += ' ORDER BY created_at DESC, id ASC LIMIT ?';
+    params.push(limit + 1);
+
+    const rows = this.db.prepare(sql).all(...params) as Record<string, unknown>[];
+    const items: CoordinatorOrganizationSummary[] = rows.slice(0, limit).map((r) => {
+      const org = this.mapOrg(r);
+      return {
+        id: org.id,
+        name: org.name,
+        kind: org.kind,
+        status: org.status,
+        city: org.city,
+        contactPerson: org.contactPerson,
+        contactPhone: org.contactPhone,
+        version: org.version,
+        createdAt: org.createdAt,
+      };
+    });
+    const nextCursor = rows.length > limit ? (items[items.length - 1]?.id ?? null) : null;
+    return { items, nextCursor };
+  }
+
+  recordCoordinatorOrgDecision(
+    orgId: string,
+    decision: 'approve' | 'verify' | 'reject' | 'suspend',
+    reason: string,
+    expectedVersion: number,
+    correlationId: string,
+    actorUserId: string
+  ): OrganizationRecord {
+    return this.withTransaction((db) => {
+      const row = db.prepare('SELECT * FROM organizations WHERE id = ?').get(orgId) as Record<string, unknown> | undefined;
+      if (!row) throw new Error('NOT_FOUND: Organization not found');
+      const org = this.mapOrg(row);
+
+      if (org.version !== expectedVersion) {
+        throw new Error('CONFLICT: Organization version mismatch; reload and retry.');
+      }
+
+      let nextStatus: OrganizationStatus;
+      if (decision === 'approve' || decision === 'verify') {
+        if (org.status !== 'pending') {
+          throw new Error('CONFLICT: That resolution is not allowed in the current state.');
+        }
+        nextStatus = 'verified';
+      } else if (decision === 'reject') {
+        if (org.status !== 'pending') {
+          throw new Error('CONFLICT: That resolution is not allowed in the current state.');
+        }
+        nextStatus = 'rejected';
+      } else if (decision === 'suspend') {
+        if (org.status !== 'verified') {
+          throw new Error('CONFLICT: That resolution is not allowed in the current state.');
+        }
+        nextStatus = 'suspended';
+      } else {
+        throw new Error('INVALID_INPUT: Unknown decision.');
+      }
+
+      const now = new Date().toISOString();
+      const nextVersion = org.version + 1;
+
+      db.prepare(`
+        UPDATE organizations
+        SET status = ?, version = ?, updated_at = ?
+        WHERE id = ? AND version = ?
+      `).run(nextStatus, nextVersion, now, org.id, org.version);
+
+      this.insertAuditEventInternal(db, {
+        correlationId,
+        actorUserId,
+        actorRole: 'coordinator',
+        entityType: 'Organization',
+        entityId: org.id,
+        eventType: 'organization_decision',
+        fromStatus: org.status,
+        toStatus: nextStatus,
+        reason,
+        metadataRedacted: { decision },
+      });
+
+      this.createNotificationInternal(db, {
+        userId: org.ownerUserId,
+        kind: 'verification',
+        message: `Your organization application has been ${nextStatus}. Reason: ${reason}`,
+        objectType: 'organization',
+        objectId: org.id,
+      });
+
+      return {
+        ...org,
+        status: nextStatus,
+        version: nextVersion,
+        updatedAt: now,
+      };
+    });
+  }
+
+  countActiveDonationsForOrg(orgId: string): number {
+    const row = this.db.prepare(`
+      SELECT COUNT(*) as count FROM donations WHERE donor_organization_id = ? AND status IN ('Available', 'Claimed', 'Pickup Confirmed')
+    `).get(orgId) as { count: number };
+    return Number(row?.count ?? 0);
+  }
+
+  countActiveClaimsForOrg(orgId: string): number {
+    const row = this.db.prepare(`
+      SELECT COUNT(*) as count FROM claims WHERE ngo_organization_id = ? AND status IN ('Active', 'Ready')
+    `).get(orgId) as { count: number };
+    return Number(row?.count ?? 0);
+  }
+
   private mapOrg(row: Record<string, unknown>): OrganizationRecord {
     return {
       id: row.id as string,
@@ -791,8 +932,15 @@ export class SqliteRepository {
     return { items, nextCursor };
   }
 
-  listAllDonationsForCoordinator(status?: DonationStatus, limit: number = 20, cursor?: string): {
-    items: Array<DonationRecord & { donorOrgName: string; claimedByNgoName?: string }>;
+  listAllDonationsForCoordinator(
+    status?: DonationStatus,
+    urgent?: boolean,
+    query?: string,
+    sort: 'deadline' | 'newest' | 'status' = 'deadline',
+    limit: number = 20,
+    cursor?: string
+  ): {
+    items: CoordinatorDonationSummary[];
     nextCursor: string | null;
   } {
     let sql = `
@@ -809,21 +957,198 @@ export class SqliteRepository {
       sql += ' AND d.status = ?';
       params.push(status);
     }
+    if (urgent) {
+      sql += " AND (d.status IN ('Claimed', 'Pickup Confirmed') OR (d.status = 'Available' AND d.pickup_deadline <= datetime('now', '+4 hours')))";
+    }
+    if (query) {
+      sql += ' AND (d.description LIKE ? OR o.name LIKE ?)';
+      params.push(`%${query}%`, `%${query}%`);
+    }
     if (cursor) {
       sql += ' AND d.id > ?';
       params.push(cursor);
     }
-    sql += ' ORDER BY d.created_at DESC LIMIT ?';
+
+    if (sort === 'newest') {
+      sql += ' ORDER BY d.created_at DESC LIMIT ?';
+    } else if (sort === 'status') {
+      sql += ' ORDER BY d.status ASC, d.pickup_deadline ASC LIMIT ?';
+    } else {
+      sql += ' ORDER BY d.pickup_deadline ASC LIMIT ?';
+    }
     params.push(limit + 1);
 
     const rows = this.db.prepare(sql).all(...params) as Array<Record<string, unknown> & { donor_org_name: string; ngo_name?: string }>;
-    const items = rows.slice(0, limit).map((r) => ({
-      ...this.mapDonation(r),
-      donorOrgName: r.donor_org_name,
-      claimedByNgoName: r.ngo_name || undefined,
-    }));
+    const items: CoordinatorDonationSummary[] = rows.slice(0, limit).map((r) => {
+      const donation = this.mapDonation(r);
+      return {
+        id: donation.id,
+        donorOrganizationName: r.donor_org_name,
+        category: donation.category,
+        description: donation.description,
+        offeredPortions: donation.offeredPortions,
+        actualCollectedPortions: donation.actualCollectedPortions,
+        status: donation.status,
+        pickupDeadline: donation.pickupDeadline,
+        claimedByNgoName: r.ngo_name ?? null,
+        version: donation.version,
+        createdAt: donation.createdAt,
+      };
+    });
     const nextCursor = rows.length > limit ? (items[items.length - 1]?.id ?? null) : null;
     return { items, nextCursor };
+  }
+
+  recordCoordinatorDonationResolve(
+    donationId: string,
+    decision: 'openDispute' | 'cancelClaim' | 'closeReview' | 'dispute' | 'cancel',
+    reason: string,
+    expectedVersion: number,
+    correlationId: string,
+    actorUserId: string
+  ): DonationRecord {
+    return this.withTransaction((db) => {
+      const donRow = db.prepare('SELECT * FROM donations WHERE id = ?').get(donationId) as Record<string, unknown> | undefined;
+      if (!donRow) throw new Error('NOT_FOUND: Donation not found');
+      const donation = this.mapDonation(donRow);
+
+      if (donation.version !== expectedVersion) {
+        throw new Error('CONFLICT: Donation state has changed; reload and retry.');
+      }
+
+      let nextStatus: DonationStatus;
+      const now = new Date().toISOString();
+
+      if (decision === 'openDispute' || decision === 'dispute') {
+        if (!['Claimed', 'Pickup Confirmed', 'Available'].includes(donation.status)) {
+          throw new Error('CONFLICT: That resolution is not allowed in the current state.');
+        }
+        nextStatus = 'Disputed';
+      } else if (decision === 'cancelClaim' || decision === 'cancel') {
+        // Find active claim
+        const claimRow = db.prepare(`
+          SELECT * FROM claims WHERE donation_id = ? AND status IN ('Active', 'Ready')
+        `).get(donationId) as Record<string, unknown> | undefined;
+
+        if (claimRow) {
+          const claim = this.mapClaim(claimRow);
+          db.prepare(`
+            UPDATE claims SET status = 'Cancelled', version = version + 1 WHERE id = ?
+          `).run(claim.id);
+
+          this.insertAuditEventInternal(db, {
+            correlationId,
+            actorUserId,
+            actorRole: 'coordinator',
+            entityType: 'Claim',
+            entityId: claim.id,
+            eventType: 'claim_cancel',
+            fromStatus: claim.status,
+            toStatus: 'Cancelled',
+            reason: `Coordinator cancelled claim: ${reason}`,
+            metadataRedacted: null,
+          });
+        }
+
+        const isPastDeadline = donation.pickupDeadline <= now;
+        nextStatus = isPastDeadline ? 'Expired' : 'Available';
+      } else if (decision === 'closeReview') {
+        if (donation.status !== 'Disputed') {
+          throw new Error('CONFLICT: That resolution is not allowed in the current state.');
+        }
+        if (donation.actualCollectedPortions > 0) {
+          nextStatus = 'Completed';
+        } else if (donation.pickupDeadline <= now) {
+          nextStatus = 'Expired';
+        } else {
+          nextStatus = 'Available';
+        }
+      } else {
+        throw new Error('INVALID_INPUT: Unknown decision.');
+      }
+
+      const nextVersion = donation.version + 1;
+      db.prepare(`
+        UPDATE donations
+        SET status = ?, version = ?, updated_at = ?
+        WHERE id = ? AND version = ?
+      `).run(nextStatus, nextVersion, now, donation.id, donation.version);
+
+      this.insertAuditEventInternal(db, {
+        correlationId,
+        actorUserId,
+        actorRole: 'coordinator',
+        entityType: 'Donation',
+        entityId: donation.id,
+        eventType: 'donation_resolve',
+        fromStatus: donation.status,
+        toStatus: nextStatus,
+        reason,
+        metadataRedacted: { decision },
+      });
+
+      const donorOrg = this.getOrgById(donation.donorOrganizationId);
+      if (donorOrg) {
+        this.createNotificationInternal(db, {
+          userId: donorOrg.ownerUserId,
+          kind: 'cancelled',
+          message: `Coordinator resolved donation listing: ${decision}. Reason: ${reason}`,
+          objectType: 'donation',
+          objectId: donation.id,
+        });
+      }
+
+      return {
+        ...donation,
+        status: nextStatus,
+        version: nextVersion,
+        updatedAt: now,
+      };
+    });
+  }
+
+  getCoordinatorDashboardMetrics(): CoordinatorDashboardDTO {
+    const pendingOrgsRow = this.db.prepare(`
+      SELECT COUNT(*) as count FROM organizations WHERE status = 'pending'
+    `).get() as { count: number };
+
+    const activeDonationsRow = this.db.prepare(`
+      SELECT COUNT(*) as count FROM donations WHERE status IN ('Available', 'Claimed', 'Pickup Confirmed')
+    `).get() as { count: number };
+
+    const urgentClaimsRow = this.db.prepare(`
+      SELECT COUNT(*) as count FROM claims WHERE status IN ('Active', 'Ready')
+    `).get() as { count: number };
+
+    const disputedRow = this.db.prepare(`
+      SELECT COUNT(*) as count FROM donations WHERE status = 'Disputed'
+    `).get() as { count: number };
+
+    const rescuedRow = this.db.prepare(`
+      SELECT COALESCE(SUM(actual_collected_portions), 0) as total FROM donations WHERE status = 'Completed'
+    `).get() as { total: number };
+
+    const recentAudits = this.listAuditEvents(5).items.map((a) => ({
+      id: a.id,
+      correlationId: a.correlationId,
+      actorRole: a.actorRole,
+      entityType: a.entityType,
+      entityId: a.entityId,
+      eventType: a.eventType,
+      fromStatus: a.fromStatus,
+      toStatus: a.toStatus,
+      reason: a.reason,
+      occurredAtUtc: a.occurredAtUtc,
+    }));
+
+    return {
+      pendingOrganizationsCount: Number(pendingOrgsRow?.count ?? 0),
+      activeDonationsCount: Number(activeDonationsRow?.count ?? 0),
+      urgentClaimsCount: Number(urgentClaimsRow?.count ?? 0),
+      disputedCount: Number(disputedRow?.count ?? 0),
+      totalPortionsRescued: Number(rescuedRow?.total ?? 0),
+      recentAuditEvents: recentAudits,
+    };
   }
 
   private mapDonation(row: Record<string, unknown>): DonationRecord {
@@ -1498,7 +1823,15 @@ export class SqliteRepository {
     );
   }
 
-  listAuditEvents(limit: number = 20, cursor?: string, entityType?: string, entityId?: string): { items: AuditEventRecord[]; nextCursor: string | null } {
+  listAuditEvents(
+    limit: number = 20,
+    cursor?: string,
+    entityType?: string,
+    entityId?: string,
+    eventType?: string,
+    from?: string,
+    to?: string
+  ): { items: AuditEventRecord[]; nextCursor: string | null } {
     let sql = 'SELECT * FROM audit_events WHERE 1=1';
     const params: SqlParam[] = [];
 
@@ -1509,6 +1842,18 @@ export class SqliteRepository {
     if (entityId) {
       sql += ' AND entity_id = ?';
       params.push(entityId);
+    }
+    if (eventType) {
+      sql += ' AND event_type = ?';
+      params.push(eventType);
+    }
+    if (from) {
+      sql += ' AND occurred_at_utc >= ?';
+      params.push(from);
+    }
+    if (to) {
+      sql += ' AND occurred_at_utc <= ?';
+      params.push(to);
     }
     if (cursor) {
       sql += ' AND id < ?'; // Descending cursor
