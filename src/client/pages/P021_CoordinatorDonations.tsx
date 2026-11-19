@@ -7,9 +7,11 @@ import type { Paginated } from '../../shared/contracts.js';
 interface CoordinatorDonationItem {
   id: string;
   donorOrgName: string;
-  foodCategory: string;
+  category?: string;
+  foodCategory?: string;
   description: string;
-  portionsOffered: number;
+  offeredPortions?: number;
+  portionsOffered?: number;
   pickupDeadline: string;
   status: string;
   claimStatus: string | null;
@@ -66,7 +68,7 @@ export default function CoordinatorDonationsPage() {
           (d) =>
             d.description.toLowerCase().includes(q) ||
             d.donorOrgName.toLowerCase().includes(q) ||
-            d.foodCategory.toLowerCase().includes(q)
+            (d.category || d.foodCategory || '').toLowerCase().includes(q)
         );
       }
 
@@ -320,9 +322,13 @@ export default function CoordinatorDonationsPage() {
                         </span>
                       </td>
                       <td><strong>{d.donorOrgName}</strong></td>
-                      <td>{d.foodCategory}</td>
+                      <td>
+                        <span className="badge badge--info" style={{ textTransform: 'capitalize' }}>
+                          {d.category || d.foodCategory || 'Standard'}
+                        </span>
+                      </td>
                       <td>{d.description}</td>
-                      <td>{d.portionsOffered}</td>
+                      <td>{d.offeredPortions ?? d.portionsOffered ?? 0} portions</td>
                       <td>{new Date(d.pickupDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                       <td>{d.claimNgoName || (d.claimStatus ? `Claim: ${d.claimStatus}` : '—')}</td>
                       <td>

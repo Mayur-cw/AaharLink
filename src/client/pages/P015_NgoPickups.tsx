@@ -145,9 +145,19 @@ export default function NgoPickupsPage() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 className="card-title">My Pickups & Claims</h1>
+            <h1 className="card-title">
+              {activeArchived === 'active'
+                ? 'Active Pickups in Transit'
+                : activeArchived === 'all'
+                ? 'Rescue Operations History (All Active & Past)'
+                : 'Completed Rescues & Deliveries'}
+            </h1>
             <p className="card-description">
-              Track allocated rescue batches, access unlocked donor dispatch addresses, and submit one-time handover codes.
+              {activeArchived === 'active'
+                ? 'Track active dispatches, access unlocked donor dispatch addresses, and submit one-time handover codes.'
+                : activeArchived === 'all'
+                ? 'Complete chronological record of all surplus food claims, verified handovers, and completed deliveries.'
+                : 'Delivered and verified food rescues recorded in the permanent audit ledger.'}
             </p>
           </div>
           <button
@@ -178,17 +188,7 @@ export default function NgoPickupsPage() {
               setSearchParams({ tab: 'active' });
             }}
           >
-            🚚 Active Pickups in Transit
-          </button>
-          <button
-            type="button"
-            className={`btn btn--sm ${activeArchived === 'archived' ? 'btn--primary' : 'btn--outline'}`}
-            onClick={() => {
-              setActiveArchived('archived');
-              setSearchParams({ tab: 'archived' });
-            }}
-          >
-            📜 Completed Rescues & History
+            🚚 Active Pickups
           </button>
           <button
             type="button"
@@ -198,7 +198,17 @@ export default function NgoPickupsPage() {
               setSearchParams({ tab: 'all' });
             }}
           >
-            All Claims
+            📜 Complete History (All Active & Past)
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${activeArchived === 'archived' ? 'btn--primary' : 'btn--outline'}`}
+            onClick={() => {
+              setActiveArchived('archived');
+              setSearchParams({ tab: 'archived' });
+            }}
+          >
+            ✅ Completed Deliveries
           </button>
         </div>
 

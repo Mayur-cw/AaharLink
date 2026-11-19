@@ -14,9 +14,11 @@ interface DonorDashboardData {
   totalPortionsRescued: number;
   urgentDonations: Array<{
     id: string;
-    foodCategory: string;
+    category?: string;
+    foodCategory?: string;
     description: string;
-    portionsOffered: number;
+    offeredPortions?: number;
+    portionsOffered?: number;
     pickupDeadline: string;
     status: string;
     claimStatus: string | null;
@@ -157,9 +159,15 @@ export default function DonorDashboardPage() {
               <tbody>
                 {data.urgentDonations.map((d) => (
                   <tr key={d.id}>
-                    <td><strong>{d.foodCategory}</strong></td>
+                    <td>
+                      <span className="badge badge--info" style={{ textTransform: 'capitalize', fontWeight: 600 }}>
+                        {d.category || d.foodCategory || 'Surplus Meals'}
+                      </span>
+                    </td>
                     <td>{d.description}</td>
-                    <td>{d.portionsOffered}</td>
+                    <td>
+                      <strong>{d.offeredPortions ?? d.portionsOffered ?? 0}</strong> portions
+                    </td>
                     <td>
                       <span className={`badge ${d.status === 'Ready' ? 'badge--success' : d.status === 'Claimed' ? 'badge--warning' : 'badge--info'}`}>
                         {d.status.toUpperCase()}

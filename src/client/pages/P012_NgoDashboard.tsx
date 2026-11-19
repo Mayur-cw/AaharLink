@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../context/ToastContext.js';
-import type { NgoDashboardDTO } from '../../shared/contracts.js';
+import type { NgoDashboardDTO, DonationPublicPreview, Paginated } from '../../shared/contracts.js';
 
 export default function NgoDashboardPage() {
   const navigate = useNavigate();
@@ -13,13 +13,18 @@ export default function NgoDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [data, setData] = useState<NgoDashboardDTO | null>(null);
+  const [availableDonations, setAvailableDonations] = useState<DonationPublicPreview[]>([]);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await api<NgoDashboardDTO>('/api/ngo/dashboard');
-      setData(res);
+      const [dashRes, discRes] = await Promise.all([
+        api<NgoDashboardDTO>('/api/ngo/dashboard'),
+        api<Paginated<DonationPublicPreview>>('/api/ngo/discover?limit=5').catch(() => ({ items: [], nextCursor: null })),
+      ]);
+      setData(dashRes);
+      setAvailableDonations(discRes.items || []);
     } catch (err: unknown) {
       const msg = (err as Error).message || 'Failed to load NGO mission control.';
       setErrorMsg(msg);
@@ -218,60 +223,81 @@ export default function NgoDashboardPage() {
         )}
       </div>
 
-      {/* Recent Rescues & History Section */}
-      {data?.recentCompletedRescues && data.recentCompletedRescues.length > 0 && (
-        <div className="card" style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div>
-              <h2 className="card-title">Recent Verified Rescues</h2>
-              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-secondary)' }}>
-                Food rescues successfully verified and recorded in the immutable audit ledger.
-              </p>
-            </div>
+      {/* Discover Available Food Nearby Section */}
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h2 className="card-title">Discover Available Food Nearby</h2>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-secondary)' }}>
+              Surplus portions published within your operating radius ready for immediate claim.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            onClick={() => navigate('/ngo/discover')}
+          >
+            Browse All Available Batches ({data?.availableDonationsNearbyCount ?? availableDonations.length}) →
+          </button>
+        </div>
+
+        {availableDonations.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2rem 1.5rem', background: 'var(--color-canvas)', borderRadius: 'var(--radius-sm)' }}>
+            <p style={{ margin: '0 0 0.75rem 0', color: 'var(--color-secondary)', fontSize: '0.9rem' }}>
+              No unclaimed surplus food currently in transit radius.
+            </p>
             <button
               type="button"
               className="btn btn--outline btn--sm"
-              onClick={() => navigate('/ngo/pickups?tab=archived')}
+              onClick={() => navigate('/ngo/discover')}
             >
-              Full Rescue History ({completedCount}) →
+              Check Regional Discovery Grid
             </button>
           </div>
-
+        ) : (
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
                   <th scope="col">Status</th>
-                  <th scope="col">Food Details</th>
-                  <th scope="col">Rescued Portions</th>
-                  <th scope="col">Donor City</th>
-                  <th scope="col">Date Rescued</th>
-                  <th scope="col">Audit Receipt</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Description</th>
+                  <th scope="col">Offered Portions</th>
+                  <th scope="col">City / Distance</th>
+                  <th scope="col">Pickup Deadline</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {data.recentCompletedRescues.map((c) => (
-                  <tr key={c.id}>
+                {availableDonations.map((d) => (
+                  <tr key={d.id}>
                     <td>
-                      <span className="badge badge--info">DELIVERED & VERIFIED</span>
+                      <span className="badge badge--success">AVAILABLE</span>
                     </td>
                     <td>
-                      <strong>{c.category}</strong>: {c.description}
+                      <span className="badge badge--info" style={{ textTransform: 'capitalize' }}>
+                        {d.category}
+                      </span>
                     </td>
                     <td>
-                      <strong style={{ color: 'var(--color-accent)' }}>{c.claimedPortions}</strong> portions
+                      <strong>{d.description}</strong>
                     </td>
-                    <td>{c.donorCity}</td>
                     <td>
-                      {new Date(c.pickupDeadline).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                      <strong>{d.offeredPortions}</strong> portions
+                    </td>
+                    <td>
+                      {d.straightLineDistanceKm !== undefined ? `${d.straightLineDistanceKm.toFixed(1)} km (${d.approximateCity})` : d.approximateCity}
+                    </td>
+                    <td>
+                      {new Date(d.pickupDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td>
                       <button
                         type="button"
-                        className="btn btn--outline btn--sm"
-                        onClick={() => navigate(`/ngo/pickups/${c.id}`)}
+                        className="btn btn--primary btn--sm"
+                        onClick={() => navigate(`/ngo/donations/${d.id}`)}
                       >
-                        View Receipt →
+                        Inspect & Claim →
                       </button>
                     </td>
                   </tr>
@@ -279,8 +305,8 @@ export default function NgoDashboardPage() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Action cards */}
       <div className="grid grid--3">

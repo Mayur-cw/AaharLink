@@ -111,7 +111,7 @@ export function Header() {
                   </NavLink>
                 </li>
                 <li>
-                  <NavLink to="/ngo/pickups?tab=archived" className={navClass} onClick={() => setMobileMenuOpen(false)}>
+                  <NavLink to="/ngo/pickups?tab=all" className={navClass} onClick={() => setMobileMenuOpen(false)}>
                     History
                   </NavLink>
                 </li>

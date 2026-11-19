@@ -188,7 +188,7 @@ export default function App() {
                       path="/ngo/history"
                       element={
                         <RouteGuard allowedRoles={['ngo']}>
-                          <Navigate to="/ngo/pickups?tab=archived" replace />
+                          <Navigate to="/ngo/pickups?tab=all" replace />
                         </RouteGuard>
                       }
                     />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
@@ -102,6 +102,23 @@ export default function NgoDiscoverPage() {
     }
     navigate(`/ngo/donations/${selectedId}`);
   };
+
+  const mapMarkers = useMemo(() => {
+    return donations.map((d, index) => {
+      const angle = (index * (360 / Math.max(1, donations.length))) * (Math.PI / 180);
+      const radiusDegree = (d.straightLineDistanceKm || 3) / 111.0;
+      return {
+        id: d.id,
+        lat: 19.8762 + Math.sin(angle) * radiusDegree,
+        lng: 75.3433 + Math.cos(angle) * radiusDegree,
+        label: `${d.category.toUpperCase()}: ${d.description.slice(0, 25)}`,
+        category: d.category,
+        portions: d.offeredPortions,
+        city: d.approximateCity,
+        distanceKm: d.straightLineDistanceKm,
+      };
+    });
+  }, [donations]);
 
   return (
     <div className="page-container">
@@ -315,22 +332,9 @@ export default function NgoDiscoverPage() {
               longitude={75.3433}
               title="Regional Food Rescue Discovery Grid"
               address="Interactive proximity map of available surplus food batches across operating radius"
-              height={320}
+              height={340}
               showDirections={false}
-              markers={donations.map((d, index) => {
-                const angle = (index * (360 / Math.max(1, donations.length))) * (Math.PI / 180);
-                const radiusDegree = ((d.straightLineDistanceKm || 3) / 111.0);
-                return {
-                  id: d.id,
-                  lat: 19.8762 + Math.sin(angle) * radiusDegree,
-                  lng: 75.3433 + Math.cos(angle) * radiusDegree,
-                  label: `${d.category.toUpperCase()}: ${d.description.slice(0, 25)}`,
-                  portions: d.offeredPortions,
-                  city: d.approximateCity,
-                  distanceKm: d.straightLineDistanceKm,
-                  onClick: () => setSelectedId(d.id),
-                };
-              })}
+              markers={mapMarkers}
               selectedMarkerId={selectedId || undefined}
               onMarkerSelect={(m) => setSelectedId(m.id)}
             />
