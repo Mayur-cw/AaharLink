@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
+import CivicMap from '../components/CivicMap.js';
 import type { OwnClaimDetail, CollectionReceipt } from '../../shared/contracts.js';
 
 export default function NgoHandoverPage() {
@@ -259,6 +260,18 @@ export default function NgoHandoverPage() {
             </div>
           </div>
         </div>
+
+        {/* Live Dispatch Location Map */}
+        {claim.pickupLatitude !== undefined && claim.pickupLongitude !== undefined && (
+          <CivicMap
+            latitude={claim.pickupLatitude}
+            longitude={claim.pickupLongitude}
+            title={`Dispatch Facility: ${claim.donorOrganizationName}`}
+            address={claim.pickupAddress || `${claim.donorCity} dispatch point`}
+            height={260}
+            showDirections={true}
+          />
+        )}
 
         {/* Status Callout Banner */}
         {claim.status === 'Active' && (

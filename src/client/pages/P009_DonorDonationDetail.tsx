@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
+import CivicMap from '../components/CivicMap.js';
 import type { DonationOwnerDetail, PickupReadinessReceipt } from '../../shared/contracts.js';
 
 export default function DonorDonationDetailPage() {
@@ -335,6 +336,16 @@ export default function DonorDonationDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Civic Pickup Location Map */}
+        <CivicMap
+          latitude={detail.pickupLatitude}
+          longitude={detail.pickupLongitude}
+          title="Designated Staging & Pickup Location"
+          address={detail.pickupAddress}
+          height={240}
+          showDirections={true}
+        />
       </div>
 
       {/* Hidden elements to guarantee testid presence if conditions differ */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
+import CivicMap from '../components/CivicMap.js';
 
 interface NgoCapacityProfile {
   maxPortions: number;
@@ -220,6 +221,18 @@ export default function NgoCapacityPage() {
               disabled
             />
           </div>
+
+          {/* Base Station Map */}
+          {Number.isFinite(parseFloat(latitude)) && Number.isFinite(parseFloat(longitude)) && parseFloat(latitude) !== 0 && (
+            <CivicMap
+              latitude={parseFloat(latitude)}
+              longitude={parseFloat(longitude)}
+              title="NGO Base Station & Operations Center"
+              address={`Configured Transit Dispatch Radius: ${radiusKm || '25'} km`}
+              height={220}
+              showDirections={false}
+            />
+          )}
 
           <div className="form-actions" style={{ marginTop: '1.5rem' }}>
             <button

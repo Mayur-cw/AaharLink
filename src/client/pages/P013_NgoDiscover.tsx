@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
+import CivicMap from '../components/CivicMap.js';
 import type { DonationPublicPreview, Paginated } from '../../shared/contracts.js';
 
 export default function NgoDiscoverPage() {
@@ -25,6 +26,7 @@ export default function NgoDiscoverPage() {
   const [includeExpired, setIncludeExpired] = useState(false);
   const [showScoringModal, setShowScoringModal] = useState(false);
   const [sortAsc, setSortAsc] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
 
   const fetchDiscover = useCallback(async (targetCursor?: string) => {
     setLoading(true);
@@ -142,15 +144,43 @@ export default function NgoDiscoverPage() {
               Find surplus batches within your operating radius. Private donor street addresses and contacts remain redacted until an atomic claim is established.
             </p>
           </div>
-          <button
-            type="button"
-            data-testid="EL-119"
-            className="btn btn--primary"
-            onClick={handleInspect}
-            disabled={!selectedId}
-          >
-            Inspect eligible donation
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-border)',
+                overflow: 'hidden',
+              }}
+            >
+              <button
+                type="button"
+                className={`btn btn--sm ${viewMode === 'table' ? 'btn--primary' : 'btn--outline'}`}
+                style={{ borderRadius: 0, border: 'none', padding: '0.4rem 0.75rem' }}
+                onClick={() => setViewMode('table')}
+              >
+                📋 Table View
+              </button>
+              <button
+                type="button"
+                className={`btn btn--sm ${viewMode === 'map' ? 'btn--primary' : 'btn--outline'}`}
+                style={{ borderRadius: 0, border: 'none', padding: '0.4rem 0.75rem' }}
+                onClick={() => setViewMode('map')}
+              >
+                🗺️ Regional Map
+              </button>
+            </div>
+
+            <button
+              type="button"
+              data-testid="EL-119"
+              className="btn btn--primary"
+              onClick={handleInspect}
+              disabled={!selectedId}
+            >
+              Inspect eligible donation
+            </button>
+          </div>
         </div>
 
         {errorMsg && (
@@ -276,6 +306,36 @@ export default function NgoDiscoverPage() {
             </button>
           </div>
         </div>
+
+        {/* Interactive Civic Discovery Map */}
+        {viewMode === 'map' && !loading && donations.length > 0 && (
+          <div style={{ marginBottom: '1.5rem' }}>
+            <CivicMap
+              latitude={19.8762}
+              longitude={75.3433}
+              title="Regional Food Rescue Discovery Grid"
+              address="Interactive proximity map of available surplus food batches across operating radius"
+              height={320}
+              showDirections={false}
+              markers={donations.map((d, index) => {
+                const angle = (index * (360 / Math.max(1, donations.length))) * (Math.PI / 180);
+                const radiusDegree = ((d.straightLineDistanceKm || 3) / 111.0);
+                return {
+                  id: d.id,
+                  lat: 19.8762 + Math.sin(angle) * radiusDegree,
+                  lng: 75.3433 + Math.cos(angle) * radiusDegree,
+                  label: `${d.category.toUpperCase()}: ${d.description.slice(0, 25)}`,
+                  portions: d.offeredPortions,
+                  city: d.approximateCity,
+                  distanceKm: d.straightLineDistanceKm,
+                  onClick: () => setSelectedId(d.id),
+                };
+              })}
+              selectedMarkerId={selectedId || undefined}
+              onMarkerSelect={(m) => setSelectedId(m.id)}
+            />
+          </div>
+        )}
 
         {/* Listings Table */}
         {loading ? (
