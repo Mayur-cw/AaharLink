@@ -27,8 +27,8 @@ export default function PublishDonationPage() {
   const [preparedAt, setPreparedAt] = useState(toLocalISO(now));
   const [pickupDeadline, setPickupDeadline] = useState(toLocalISO(fourHoursLater));
   const [pickupAddress, setPickupAddress] = useState(organization?.city ? `Central Kitchen, ${organization.city}` : 'Main Campus Kitchen, 12 Civic Lane');
-  const [latitude, setLatitude] = useState(organization ? '28.6139' : '28.6139');
-  const [longitude, setLongitude] = useState(organization ? '77.2090' : '77.2090');
+  const [latitude, setLatitude] = useState('19.8762');
+  const [longitude, setLongitude] = useState('75.3433');
 
   // Food handling declarations (VR-019, VR-020)
   const [safePrep, setSafePrep] = useState(false);
