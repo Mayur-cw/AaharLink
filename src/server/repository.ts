@@ -1784,6 +1784,36 @@ export class SqliteRepository {
           metadataRedacted: null,
         });
 
+        // Notify donor
+        const donDetail = db.prepare('SELECT donor_organization_id FROM donations WHERE id = ?').get(don.id) as { donor_organization_id: string } | undefined;
+        if (donDetail) {
+          const donorOrg = this.getOrgById(donDetail.donor_organization_id);
+          if (donorOrg) {
+            this.createNotificationInternal(db, {
+              userId: donorOrg.ownerUserId,
+              kind: 'expired',
+              message: 'Your donation pickup deadline has elapsed; listing marked as Expired.',
+              objectType: 'donation',
+              objectId: don.id,
+            });
+          }
+        }
+
+        // Notify NGO if claim existed
+        const claimDetail = db.prepare('SELECT ngo_organization_id FROM claims WHERE donation_id = ?').get(don.id) as { ngo_organization_id: string } | undefined;
+        if (claimDetail) {
+          const ngoOrg = this.getOrgById(claimDetail.ngo_organization_id);
+          if (ngoOrg) {
+            this.createNotificationInternal(db, {
+              userId: ngoOrg.ownerUserId,
+              kind: 'expired',
+              message: 'Pickup deadline has elapsed for your claimed donation; claim expired.',
+              objectType: 'claim',
+              objectId: don.id,
+            });
+          }
+        }
+
         count++;
       }
 
