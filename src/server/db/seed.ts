@@ -21,6 +21,12 @@ export async function runDemoSeed() {
     recipientAssessmentAcknowledgement: true,
   };
 
+  const donorHash = await hashPassword('DemoDonor!2026');
+  const ngoAHash = await hashPassword('DemoNgoA!2026');
+  const ngoBHash = await hashPassword('DemoNgoB!2026');
+  const coordHash = await hashPassword('DemoCoord!2026');
+  const pendingHash = await hashPassword('DemoPending!2026');
+
   return repository.withTransaction((db) => {
     // Clean existing demo data if any
     db.exec(`
@@ -36,8 +42,6 @@ export async function runDemoSeed() {
     // 1. Donor Demo Account
     const donorUserId = 'usr-demo-donor';
     const donorOrgId = 'org-demo-donor';
-    const donorHash = '$2a$10$eE61K7Qc2aV4YVzN20EskO0eM/Z0.4b9lM9h2oXQZ5k10Uo4j0rWq'; // Pre-hashed or dynamic
-    // Let's insert directly
     db.prepare(`
       INSERT INTO users (id, email, password_hash, role, organization_id, session_revoked_at, created_at)
       VALUES (?, ?, ?, 'donor', ?, NULL, ?)
@@ -67,7 +71,7 @@ export async function runDemoSeed() {
     db.prepare(`
       INSERT INTO users (id, email, password_hash, role, organization_id, session_revoked_at, created_at)
       VALUES (?, ?, ?, 'ngo', ?, NULL, ?)
-    `).run(ngoAUserId, 'ngo-a@aaharlink.example', donorHash, ngoAOrgId, now.toISOString());
+    `).run(ngoAUserId, 'ngo-a@aaharlink.example', ngoAHash, ngoAOrgId, now.toISOString());
 
     db.prepare(`
       INSERT INTO organizations (
@@ -93,7 +97,7 @@ export async function runDemoSeed() {
     db.prepare(`
       INSERT INTO users (id, email, password_hash, role, organization_id, session_revoked_at, created_at)
       VALUES (?, ?, ?, 'ngo', ?, NULL, ?)
-    `).run(ngoBUserId, 'ngo-b@aaharlink.example', donorHash, ngoBOrgId, now.toISOString());
+    `).run(ngoBUserId, 'ngo-b@aaharlink.example', ngoBHash, ngoBOrgId, now.toISOString());
 
     db.prepare(`
       INSERT INTO organizations (
@@ -118,7 +122,7 @@ export async function runDemoSeed() {
     db.prepare(`
       INSERT INTO users (id, email, password_hash, role, organization_id, session_revoked_at, created_at)
       VALUES (?, ?, ?, 'coordinator', NULL, NULL, ?)
-    `).run(coordUserId, 'coordinator@aaharlink.example', donorHash, now.toISOString());
+    `).run(coordUserId, 'coordinator@aaharlink.example', coordHash, now.toISOString());
 
     // 5. NGO Pending Applicant
     const ngoPendingUserId = 'usr-demo-ngo-pending';
@@ -126,7 +130,7 @@ export async function runDemoSeed() {
     db.prepare(`
       INSERT INTO users (id, email, password_hash, role, organization_id, session_revoked_at, created_at)
       VALUES (?, ?, ?, 'ngo', ?, NULL, ?)
-    `).run(ngoPendingUserId, 'ngo-pending@aaharlink.example', donorHash, ngoPendingOrgId, now.toISOString());
+    `).run(ngoPendingUserId, 'ngo-pending@aaharlink.example', pendingHash, ngoPendingOrgId, now.toISOString());
 
     db.prepare(`
       INSERT INTO organizations (

@@ -128,6 +128,7 @@ export const authRateLimiter = rateLimit({
   limit: 5, // 5 attempts per min per IP/account
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
   message: (_req: Request, res: Response) => {
     const correlationId = (res.locals.correlationId as string) || crypto.randomUUID();
     return createErrorEnvelope(
@@ -143,6 +144,7 @@ export const mutationRateLimiter = rateLimit({
   limit: 30, // 30 mutations per min per session/IP
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
   message: (_req: Request, res: Response) => {
     const correlationId = (res.locals.correlationId as string) || crypto.randomUUID();
     return createErrorEnvelope(
@@ -158,6 +160,7 @@ export const readRateLimiter = rateLimit({
   limit: 120, // 120 reads per min per session/IP
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
   message: (_req: Request, res: Response) => {
     const correlationId = (res.locals.correlationId as string) || crypto.randomUUID();
     return createErrorEnvelope(
