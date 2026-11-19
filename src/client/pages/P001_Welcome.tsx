@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../context/ToastContext.js';
@@ -7,6 +7,18 @@ export default function WelcomePage() {
   const navigate = useNavigate();
   const { user, organization, role, isAuthenticated, refreshSession, logout } = useAuth();
   const toast = useToast();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (role === 'donor') {
+        navigate('/donor', { replace: true });
+      } else if (role === 'ngo') {
+        navigate('/ngo', { replace: true });
+      } else if (role === 'coordinator') {
+        navigate('/coordinator', { replace: true });
+      }
+    }
+  }, [isAuthenticated, role, navigate]);
 
   const handleRefreshSession = async () => {
     try {

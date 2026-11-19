@@ -1,8 +1,24 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.js';
 
 export default function ForbiddenPage() {
   const navigate = useNavigate();
+  const { role, isAuthenticated } = useAuth();
+
+  const handleReturn = () => {
+    if (!isAuthenticated) {
+      navigate('/');
+    } else if (role === 'donor') {
+      navigate('/donor');
+    } else if (role === 'ngo') {
+      navigate('/ngo');
+    } else if (role === 'coordinator') {
+      navigate('/coordinator');
+    } else {
+      navigate('/');
+    }
+  };
 
   return (
     <div className="page-container page-container--narrow">
@@ -17,7 +33,7 @@ export default function ForbiddenPage() {
             type="button"
             data-testid="EL-220"
             className="btn btn--primary"
-            onClick={() => navigate('/')}
+            onClick={handleReturn}
           >
             Back to service start
           </button>

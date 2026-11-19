@@ -1,7 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.js';
 
 export function Footer() {
+  const { isAuthenticated, role } = useAuth();
+
+  const homeTarget = !isAuthenticated
+    ? '/'
+    : role === 'donor'
+    ? '/donor'
+    : role === 'ngo'
+    ? '/ngo'
+    : role === 'coordinator'
+    ? '/coordinator'
+    : '/';
+
   return (
     <footer className="site-footer" role="contentinfo">
       <div className="site-footer__container">
@@ -18,7 +31,7 @@ export function Footer() {
         <div className="site-footer__section site-footer__links">
           <h2 className="footer-heading">Quick Navigation</h2>
           <ul className="footer-nav-list">
-            <li><Link to="/">Home & Mission</Link></li>
+            <li><Link to={homeTarget}>{!isAuthenticated ? 'Home & Mission' : 'My Workspace'}</Link></li>
             <li><Link to="/login">Sign In / Demo Accounts</Link></li>
             <li><Link to="/register">Register Organization</Link></li>
             <li><Link to="/account">Account & Capacity</Link></li>

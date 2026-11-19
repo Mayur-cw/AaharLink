@@ -22,11 +22,21 @@ export function Header() {
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `nav-link ${isActive ? 'nav-link--active' : ''}`;
 
+  const homeDestination = !isAuthenticated
+    ? '/'
+    : role === 'donor'
+    ? '/donor'
+    : role === 'ngo'
+    ? '/ngo'
+    : role === 'coordinator'
+    ? '/coordinator'
+    : '/';
+
   return (
     <header className="site-header" role="banner">
       <div className="site-header__container">
         <div className="site-header__brand">
-          <Link to="/" className="brand-logo" aria-label="AaharLink Home">
+          <Link to={homeDestination} className="brand-logo" aria-label="AaharLink Home">
             <span className="brand-symbol" aria-hidden="true">🌱</span>
             <span className="brand-title">AaharLink</span>
           </Link>
@@ -50,11 +60,13 @@ export function Header() {
           aria-label="Main Navigation"
         >
           <ul className="nav-list">
-            <li>
-              <NavLink to="/" className={navClass} onClick={() => setMobileMenuOpen(false)}>
-                Home
-              </NavLink>
-            </li>
+            {!isAuthenticated && (
+              <li>
+                <NavLink to="/" className={navClass} onClick={() => setMobileMenuOpen(false)}>
+                  Home
+                </NavLink>
+              </li>
+            )}
 
             {role === 'donor' && (
               <>
