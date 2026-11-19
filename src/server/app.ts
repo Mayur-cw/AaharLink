@@ -10,6 +10,7 @@ import { correlationMiddleware, sessionMiddleware } from './authz.js';
 import { authRouter } from './routes/auth.js';
 import { accountRouter } from './routes/account.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { donorRouter } from './routes/donor.js';
 
 export function createApp() {
   const config = getConfig();
@@ -65,6 +66,7 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/account', accountRouter);
   app.use('/api/notifications', notificationsRouter);
+  app.use('/api/donor', donorRouter);
 
   // Client static assets
   const dirname = path.dirname(fileURLToPath(import.meta.url));

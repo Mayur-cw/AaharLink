@@ -64,7 +64,7 @@ notificationsRouter.patch(
   (req: Request, res: Response) => {
     const correlationId = (res.locals.correlationId as string) || crypto.randomUUID();
     const principal = res.locals.principal as Principal;
-    const id = req.params.id;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
     if (!id || typeof id !== 'string') {
       res.status(400).json(
