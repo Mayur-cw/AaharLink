@@ -45,8 +45,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const info = useCallback((msg: string) => addToast('info', msg), [addToast]);
   const warning = useCallback((msg: string) => addToast('warning', msg, 6000), [addToast]);
 
+  const value = React.useMemo(
+    () => ({ toasts, addToast, removeToast, success, error, info, warning }),
+    [toasts, addToast, removeToast, success, error, info, warning]
+  );
+
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast, success, error, info, warning }}>
+    <ToastContext.Provider value={value}>
       {children}
       <aside
         className="toast-container"

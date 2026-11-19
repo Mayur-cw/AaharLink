@@ -27,8 +27,8 @@ export default function PublishDonationPage() {
   const [preparedAt, setPreparedAt] = useState(toLocalISO(now));
   const [pickupDeadline, setPickupDeadline] = useState(toLocalISO(fourHoursLater));
   const [pickupAddress, setPickupAddress] = useState(organization?.city ? `Central Kitchen, ${organization.city}` : 'Main Campus Kitchen, 12 Civic Lane');
-  const [latitude, setLatitude] = useState('19.8762');
-  const [longitude, setLongitude] = useState('75.3433');
+  const [latitude, setLatitude] = useState(organization?.latitude ? String(organization.latitude) : '19.8762');
+  const [longitude, setLongitude] = useState(organization?.longitude ? String(organization.longitude) : '75.3433');
 
   // Food handling declarations (VR-019, VR-020)
   const [safePrep, setSafePrep] = useState(false);
@@ -261,10 +261,10 @@ export default function PublishDonationPage() {
           {/* Interactive Donor Pickup Map */}
           <CivicMap
             latitude={parseFloat(latitude) || 19.8762}
-            longitude={parseFloat(longitude) || 75.3200}
+            longitude={parseFloat(longitude) || 75.3433}
             title="Designated Staging & Pickup Location"
             address={pickupAddress || 'Set precise vehicle collection point'}
-            height={260}
+            height={280}
             interactive={true}
             onLocationChange={(newLat, newLng) => {
               setLatitude(String(newLat));

@@ -16,6 +16,8 @@ interface OrgSummary {
   status: string;
   city: string;
   verified: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface AuthContextValue {

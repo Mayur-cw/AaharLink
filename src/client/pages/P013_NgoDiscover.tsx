@@ -8,6 +8,8 @@ import type { DonationPublicPreview, Paginated } from '../../shared/contracts.js
 export default function NgoDiscoverPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const toastRef = React.useRef(toast);
+  toastRef.current = toast;
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -45,17 +47,17 @@ export default function NgoDiscoverPage() {
       const res = await api<Paginated<DonationPublicPreview>>(`/api/ngo/discover?${queryParams.toString()}`);
       setDonations(res.items);
       setNextCursor(res.nextCursor);
-      if (res.items.length > 0 && !selectedId) {
-        setSelectedId(res.items[0].id);
+      if (res.items.length > 0) {
+        setSelectedId((prev) => prev || res.items[0].id);
       }
     } catch (err: unknown) {
       const msg = (err as Error).message || 'Failed to discover available food.';
       setErrorMsg(msg);
-      toast.error(msg);
+      toastRef.current.error(msg);
     } finally {
       setLoading(false);
     }
-  }, [category, minPortions, maxDistanceKm, deadlineBefore, orderPreference, includeExpired, selectedId, toast]);
+  }, [category, minPortions, maxDistanceKm, deadlineBefore, orderPreference, includeExpired]);
 
   useEffect(() => {
     fetchDiscover();
@@ -325,14 +327,18 @@ export default function NgoDiscoverPage() {
         </div>
 
         {/* Interactive Civic Discovery Map */}
-        {viewMode === 'map' && !loading && donations.length > 0 && (
+        {viewMode === 'map' && !loading && (
           <div style={{ marginBottom: '1.5rem' }}>
             <CivicMap
               latitude={19.8762}
               longitude={75.3433}
               title="Regional Food Rescue Discovery Grid"
-              address="Interactive proximity map of available surplus food batches across operating radius"
-              height={340}
+              address={
+                donations.length > 0
+                  ? `Showing ${donations.length} available surplus batch${donations.length > 1 ? 'es' : ''} across operating radius`
+                  : 'No available surplus food currently matches your discovery filters'
+              }
+              height={360}
               showDirections={false}
               markers={mapMarkers}
               selectedMarkerId={selectedId || undefined}

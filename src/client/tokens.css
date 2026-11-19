@@ -992,6 +992,28 @@ html, body {
   margin-bottom: 1.5rem;
 }
 
+/* Civic Leaflet Map styling */
+.leaflet-container {
+  font-family: inherit;
+  z-index: 1;
+}
+
+.civic-picker-pin, .civic-batch-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px;
+  line-height: 1.4;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

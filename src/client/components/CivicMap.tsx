@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import L from 'leaflet';
 
 export interface MapMarker {
   id: string;
@@ -27,13 +28,59 @@ export interface CivicMapProps {
   onLocationChange?: (lat: number, lng: number) => void;
 }
 
+const isBrowser =
+  typeof window !== 'undefined' &&
+  typeof document !== 'undefined' &&
+  !(typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent));
+
+function createPickerPinIcon(label?: string) {
+  const safeText = (label || 'Pickup Location').replace(/[<>&]/g, '');
+  const svg = `
+    <div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);pointer-events:none;">
+      <div style="background:#22744F;color:#ffffff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:1px solid #ffffff;margin-bottom:2px;">
+        📍 ${safeText}
+      </div>
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35));">
+        <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#22744F" stroke="#18563B" stroke-width="1.5"/>
+        <circle cx="12" cy="9" r="3.5" fill="#FFFFFF" />
+      </svg>
+    </div>
+  `;
+  return L.divIcon({
+    html: svg,
+    className: 'civic-picker-pin',
+    iconSize: [34, 44],
+    iconAnchor: [17, 44],
+    popupAnchor: [0, -44],
+  });
+}
+
+function createBatchPinIcon(portions: number, category: string, isSelected: boolean) {
+  const bg = isSelected ? '#18563B' : '#22744F';
+  const border = isSelected ? '#FACC15' : '#ffffff';
+  const scale = isSelected ? '1.1' : '1.0';
+  const svg = `
+    <div style="display:flex;align-items:center;gap:4px;background:${bg};color:#ffffff;border:2px solid ${border};border-radius:16px;padding:3px 8px;font-size:11px;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,0.25);transform:translate(-50%,-50%) scale(${scale});white-space:nowrap;cursor:pointer;">
+      <span>🍱</span>
+      <span>${portions}p</span>
+      <span style="opacity:0.85;font-size:9px;text-transform:uppercase;">${category.slice(0, 3)}</span>
+    </div>
+  `;
+  return L.divIcon({
+    html: svg,
+    className: 'civic-batch-pin',
+    iconSize: [60, 26],
+    iconAnchor: [30, 13],
+    popupAnchor: [0, -13],
+  });
+}
+
 export default function CivicMap({
   latitude,
   longitude,
   title = 'Pickup & Delivery Dispatch Location',
   address,
   height = 280,
-  zoomDelta = 0.02,
   showDirections = true,
   markers,
   selectedMarkerId,
@@ -41,27 +88,22 @@ export default function CivicMap({
   interactive = false,
   onLocationChange,
 }: CivicMapProps) {
-  // Default to zero-latency, glitch-free civic map so it NEVER reloads or flashes
-  const [mapType, setMapType] = useState<'civic' | 'osm'>('civic');
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+  const markersGroupRef = useRef<L.LayerGroup | null>(null);
+
   const [geoLocating, setGeoLocating] = useState(false);
-  const [lastAction, setLastAction] = useState<string | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
+  const onLocationChangeRef = useRef(onLocationChange);
+  onLocationChangeRef.current = onLocationChange;
+
+  const onMarkerSelectRef = useRef(onMarkerSelect);
+  onMarkerSelectRef.current = onMarkerSelect;
 
   const validLat = Number.isFinite(latitude) && latitude !== 0 ? latitude : 19.8762;
   const validLng = Number.isFinite(longitude) && longitude !== 0 ? longitude : 75.3433;
-
-  // Viewport bounds centered around reference coordinate
-  const [centerLat, setCenterLat] = useState<number>(validLat);
-  const [centerLng, setCenterLng] = useState<number>(validLng);
-
-  // Update center when coordinate moves significantly outside viewport
-  const minLng = centerLng - zoomDelta;
-  const maxLng = centerLng + zoomDelta;
-  const minLat = centerLat - zoomDelta * 0.6;
-  const maxLat = centerLat + zoomDelta * 0.6;
-
-  // Pin position percentage relative to viewport
-  const pinXPercent = Math.max(5, Math.min(95, ((validLng - minLng) / (maxLng - minLng)) * 100));
-  const pinYPercent = Math.max(10, Math.min(90, ((maxLat - validLat) / (maxLat - minLat)) * 100));
 
   const gmapsDirectionsUrl = useMemo(
     () => `https://www.google.com/maps/dir/?api=1&destination=${validLat},${validLng}`,
@@ -72,49 +114,185 @@ export default function CivicMap({
     [validLat, validLng]
   );
 
-  // Direct click anywhere on the map viewport to move the pin
-  const handleMapClick = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
-      if (!interactive || !onLocationChange) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const xRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const yRatio = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+  // Initialize Leaflet Map
+  useEffect(() => {
+    if (!isBrowser || !mapContainerRef.current) return;
+    if (mapInstanceRef.current) return;
 
-      const clickedLng = Number((minLng + xRatio * (maxLng - minLng)).toFixed(4));
-      const clickedLat = Number((maxLat - yRatio * (maxLat - minLat)).toFixed(4));
+    const map = L.map(mapContainerRef.current, {
+      center: [validLat, validLng],
+      zoom: interactive ? 15 : 14,
+      zoomControl: true,
+      scrollWheelZoom: true,
+      attributionControl: true,
+    });
 
-      onLocationChange(clickedLat, clickedLng);
-      setLastAction(`Pin placed at ${clickedLat.toFixed(4)}°N, ${clickedLng.toFixed(4)}°E`);
-    },
-    [interactive, onLocationChange, minLng, maxLng, minLat, maxLat]
-  );
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
 
-  // Directional Nudges
-  const nudge = useCallback(
-    (deltaLat: number, deltaLng: number, label: string) => {
-      if (!onLocationChange) return;
-      const newLat = Number((validLat + deltaLat).toFixed(4));
-      const newLng = Number((validLng + deltaLng).toFixed(4));
-      onLocationChange(newLat, newLng);
-      setLastAction(`Moved pin ${label} to ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`);
-    },
-    [validLat, validLng, onLocationChange]
-  );
+    if (interactive) {
+      // Interactive Draggable Pin for Donors
+      const marker = L.marker([validLat, validLng], {
+        icon: createPickerPinIcon(address || 'Staging Location'),
+        draggable: true,
+      }).addTo(map);
+
+      marker.on('dragend', () => {
+        const pos = marker.getLatLng();
+        const newLat = Number(pos.lat.toFixed(4));
+        const newLng = Number(pos.lng.toFixed(4));
+        if (onLocationChangeRef.current) {
+          onLocationChangeRef.current(newLat, newLng);
+        }
+        setFeedbackMsg(`Pin dragged to ${newLat.toFixed(4)}°N, ${newLng.toFixed(4)}°E`);
+      });
+
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        const newLat = Number(e.latlng.lat.toFixed(4));
+        const newLng = Number(e.latlng.lng.toFixed(4));
+        marker.setLatLng([newLat, newLng]);
+        if (onLocationChangeRef.current) {
+          onLocationChangeRef.current(newLat, newLng);
+        }
+        setFeedbackMsg(`Pin placed at ${newLat.toFixed(4)}°N, ${newLng.toFixed(4)}°E`);
+      });
+
+      markerRef.current = marker;
+    } else if (!markers || markers.length === 0) {
+      // Single Fixed Location Pin
+      const marker = L.marker([validLat, validLng], {
+        icon: createPickerPinIcon(address || 'Dispatch Location'),
+      }).addTo(map);
+
+      if (address) {
+        marker.bindPopup(`<strong>${title}</strong><br/>${address}`);
+      }
+
+      markerRef.current = marker;
+    }
+
+    mapInstanceRef.current = map;
+
+    const timer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      map.remove();
+      mapInstanceRef.current = null;
+      markerRef.current = null;
+      markersGroupRef.current = null;
+    };
+  }, [interactive]);
+
+  // Update single/interactive marker when props change externally
+  useEffect(() => {
+    if (!isBrowser) return;
+    const map = mapInstanceRef.current;
+    const marker = markerRef.current;
+    if (!map || !marker) return;
+
+    const currentPos = marker.getLatLng();
+    if (Math.abs(currentPos.lat - validLat) > 0.0001 || Math.abs(currentPos.lng - validLng) > 0.0001) {
+      marker.setLatLng([validLat, validLng]);
+      map.panTo([validLat, validLng], { animate: true, duration: 0.35 });
+    }
+  }, [validLat, validLng]);
+
+  // Multi-marker update for NGO Discovery
+  useEffect(() => {
+    if (!isBrowser) return;
+    const map = mapInstanceRef.current;
+    if (!map || !markers) return;
+
+    if (!markersGroupRef.current) {
+      markersGroupRef.current = L.layerGroup().addTo(map);
+    } else {
+      markersGroupRef.current.clearLayers();
+    }
+
+    if (markers.length === 0) return;
+
+    const bounds = L.latLngBounds([]);
+
+    markers.forEach((m) => {
+      if (!Number.isFinite(m.lat) || !Number.isFinite(m.lng)) return;
+      const isSelected = selectedMarkerId === m.id;
+      const batchMarker = L.marker([m.lat, m.lng], {
+        icon: createBatchPinIcon(m.portions || 1, m.category || 'Surplus', isSelected),
+      });
+
+      const popupContainer = document.createElement('div');
+      popupContainer.style.fontFamily = 'inherit';
+      popupContainer.style.fontSize = '12px';
+      popupContainer.style.color = '#17251D';
+      popupContainer.style.minWidth = '180px';
+      popupContainer.style.padding = '4px';
+
+      const titleDiv = document.createElement('div');
+      titleDiv.style.fontWeight = '700';
+      titleDiv.style.fontSize = '13px';
+      titleDiv.style.marginBottom = '2px';
+      titleDiv.textContent = m.label;
+      popupContainer.appendChild(titleDiv);
+
+      const infoDiv = document.createElement('div');
+      infoDiv.style.color = '#566458';
+      infoDiv.style.marginBottom = '8px';
+      infoDiv.textContent = `${m.portions || 0} portions • ${m.distanceKm ? `${m.distanceKm.toFixed(1)} km away` : m.city || 'Nearby'}`;
+      popupContainer.appendChild(infoDiv);
+
+      const inspectBtn = document.createElement('button');
+      inspectBtn.type = 'button';
+      inspectBtn.textContent = 'Inspect Batch →';
+      inspectBtn.style.cssText =
+        'background:#22744F;color:#ffffff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;width:100%;';
+      inspectBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (onMarkerSelectRef.current) onMarkerSelectRef.current(m);
+        if (m.onClick) m.onClick();
+      };
+      popupContainer.appendChild(inspectBtn);
+
+      batchMarker.bindPopup(popupContainer);
+      batchMarker.on('click', () => {
+        if (onMarkerSelectRef.current) onMarkerSelectRef.current(m);
+        if (m.onClick) m.onClick();
+      });
+
+      markersGroupRef.current?.addLayer(batchMarker);
+      bounds.extend([m.lat, m.lng]);
+    });
+
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+    }
+  }, [markers, selectedMarkerId]);
+
+  // Directional Nudges for donors
+  const nudge = (deltaLat: number, deltaLng: number, label: string) => {
+    if (!onLocationChange) return;
+    const newLat = Number((validLat + deltaLat).toFixed(4));
+    const newLng = Number((validLng + deltaLng).toFixed(4));
+    onLocationChange(newLat, newLng);
+    setFeedbackMsg(`Moved pin ${label} to ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`);
+  };
 
   // Preset location selector
-  const setPreset = useCallback(
-    (lat: number, lng: number, label: string) => {
-      if (!onLocationChange) return;
-      setCenterLat(lat);
-      setCenterLng(lng);
-      onLocationChange(lat, lng);
-      setLastAction(`Set to ${label}`);
-    },
-    [onLocationChange]
-  );
+  const setPreset = (lat: number, lng: number, label: string) => {
+    if (!onLocationChange) return;
+    onLocationChange(lat, lng);
+    setFeedbackMsg(`Preset applied: ${label}`);
+  };
 
-  // GPS Device Geolocation
-  const handleUseCurrentLocation = useCallback(() => {
+  // Device GPS
+  const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
       return;
@@ -125,23 +303,21 @@ export default function CivicMap({
         setGeoLocating(false);
         const lat = Number(pos.coords.latitude.toFixed(4));
         const lng = Number(pos.coords.longitude.toFixed(4));
-        setCenterLat(lat);
-        setCenterLng(lng);
         if (onLocationChange) {
           onLocationChange(lat, lng);
         }
-        setLastAction(`Located GPS at ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        setFeedbackMsg(`GPS location locked: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
       },
       () => {
         setGeoLocating(false);
         if (onLocationChange) {
           onLocationChange(19.8762, 75.3433);
         }
-        setLastAction('Defaulted to civic center');
+        setFeedbackMsg('Defaulted to civic operations center');
       },
       { timeout: 8000 }
     );
-  }, [onLocationChange]);
+  };
 
   const activeMarker = useMemo(() => {
     if (!markers || !selectedMarkerId) return null;
@@ -175,7 +351,9 @@ export default function CivicMap({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '1.25rem' }} aria-hidden="true">📍</span>
+          <span style={{ fontSize: '1.25rem' }} aria-hidden="true">
+            🗺️
+          </span>
           <div>
             <div style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-ink)' }}>
               {title}
@@ -195,19 +373,10 @@ export default function CivicMap({
           >
             {validLat.toFixed(4)}°N, {validLng.toFixed(4)}°E
           </span>
-
-          <button
-            type="button"
-            className="btn btn--outline btn--sm"
-            style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
-            onClick={() => setMapType(mapType === 'civic' ? 'osm' : 'civic')}
-          >
-            {mapType === 'civic' ? '🗺️ Satellite / Street Tiles' : '🏙️ Civic Grid View'}
-          </button>
         </div>
       </div>
 
-      {/* Interactive Adjustment Controls for Donors */}
+      {/* Interactive Controls for Donors */}
       {interactive && onLocationChange && (
         <div
           style={{
@@ -223,14 +392,17 @@ export default function CivicMap({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--color-accent-hover)', fontWeight: 600, fontSize: '0.8125rem' }}>
-              📍 Adjust Pin:
+              📍 Pin Nudge:
             </span>
             <button
               type="button"
               className="btn btn--outline btn--sm"
               style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-              onClick={() => nudge(0.002, 0, 'North')}
-              title="Move pin North"
+              onClick={(e) => {
+                e.stopPropagation();
+                nudge(0.002, 0, 'North');
+              }}
+              title="Nudge pin North"
             >
               ⬆️ North
             </button>
@@ -238,8 +410,11 @@ export default function CivicMap({
               type="button"
               className="btn btn--outline btn--sm"
               style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-              onClick={() => nudge(-0.002, 0, 'South')}
-              title="Move pin South"
+              onClick={(e) => {
+                e.stopPropagation();
+                nudge(-0.002, 0, 'South');
+              }}
+              title="Nudge pin South"
             >
               ⬇️ South
             </button>
@@ -247,8 +422,11 @@ export default function CivicMap({
               type="button"
               className="btn btn--outline btn--sm"
               style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-              onClick={() => nudge(0, -0.002, 'West')}
-              title="Move pin West"
+              onClick={(e) => {
+                e.stopPropagation();
+                nudge(0, -0.002, 'West');
+              }}
+              title="Nudge pin West"
             >
               ⬅️ West
             </button>
@@ -256,8 +434,11 @@ export default function CivicMap({
               type="button"
               className="btn btn--outline btn--sm"
               style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-              onClick={() => nudge(0, 0.002, 'East')}
-              title="Move pin East"
+              onClick={(e) => {
+                e.stopPropagation();
+                nudge(0, 0.002, 'East');
+              }}
+              title="Nudge pin East"
             >
               ➡️ East
             </button>
@@ -265,7 +446,10 @@ export default function CivicMap({
               type="button"
               className="btn btn--secondary btn--sm"
               style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-              onClick={handleUseCurrentLocation}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUseCurrentLocation();
+              }}
               disabled={geoLocating}
             >
               {geoLocating ? 'Locating...' : '🎯 My GPS'}
@@ -278,7 +462,10 @@ export default function CivicMap({
               type="button"
               className="btn btn--outline btn--sm"
               style={{ fontSize: '0.75rem', padding: '0.15rem 0.4rem' }}
-              onClick={() => setPreset(19.8762, 75.3433, 'Central City')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreset(19.8762, 75.3433, 'Central City');
+              }}
             >
               City Center
             </button>
@@ -286,7 +473,10 @@ export default function CivicMap({
               type="button"
               className="btn btn--outline btn--sm"
               style={{ fontSize: '0.75rem', padding: '0.15rem 0.4rem' }}
-              onClick={() => setPreset(19.8850, 75.3200, 'Industrial Bay')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreset(19.885, 75.32, 'Industrial Bay');
+              }}
             >
               North Hub
             </button>
@@ -294,7 +484,10 @@ export default function CivicMap({
               type="button"
               className="btn btn--outline btn--sm"
               style={{ fontSize: '0.75rem', padding: '0.15rem 0.4rem' }}
-              onClick={() => setPreset(19.8620, 75.3650, 'Market Zone')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreset(19.862, 75.365, 'Market Zone');
+              }}
             >
               Market Bay
             </button>
@@ -302,207 +495,67 @@ export default function CivicMap({
         </div>
       )}
 
-      {/* Map Content Viewport */}
+      {/* Real Leaflet Map Viewport */}
       <div
         style={{
           position: 'relative',
           width: '100%',
           height: typeof height === 'number' ? `${height}px` : height,
-          background: '#e9ede9',
+          background: '#e5e3df',
           overflow: 'hidden',
-          userSelect: 'none',
         }}
       >
-        {mapType === 'osm' ? (
-          /* Static OpenStreetMap Tile Layer */
+        {isBrowser ? (
           <div
-            style={{
-              width: '100%',
-              height: '100%',
-              position: 'relative',
-              background: '#e5e3df',
-            }}
-          >
-            <img
-              src={`https://tile.openstreetmap.org/14/${Math.floor(((validLng + 180) / 360) * Math.pow(2, 14))}/${Math.floor((1 - Math.log(Math.tan(validLat * Math.PI / 180) + 1 / Math.cos(validLat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, 14))}.png`}
-              alt="Street map tile"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
-              onError={(e) => {
-                // If tile cannot load, fallback seamlessly to civic vector
-                (e.target as HTMLElement).style.display = 'none';
-              }}
-            />
-          </div>
-        ) : (
-          /* Interactive High-Contrast Civic Vector Canvas (Zero-Jitter & Zero-Reload) */
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              position: 'relative',
-              background: 'linear-gradient(135deg, #f4f7f4 0%, #e2ece4 100%)',
-            }}
-          >
-            {/* Civic Vector Roads & Dispatch Corridors */}
-            <svg
-              width="100%"
-              height="100%"
-              style={{ position: 'absolute', inset: 0 }}
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <defs>
-                <pattern id="civic-street-grid" width="48" height="48" patternUnits="userSpaceOnUse">
-                  <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(0, 0, 0, 0.06)" strokeWidth="1" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#civic-street-grid)" />
-
-              {/* Major Transit Arteries */}
-              <line x1="0" y1="45%" x2="100%" y2="45%" stroke="#ffffff" strokeWidth="8" />
-              <line x1="0" y1="45%" x2="100%" y2="45%" stroke="var(--color-border)" strokeWidth="2" strokeDasharray="6 4" />
-              <line x1="38%" y1="0" x2="38%" y2="100%" stroke="#ffffff" strokeWidth="6" />
-              <line x1="72%" y1="0" x2="72%" y2="100%" stroke="#ffffff" strokeWidth="6" />
-
-              {/* Transit Zone Circles */}
-              <circle cx="50%" cy="50%" r="65" fill="var(--color-accent-light)" opacity="0.6" stroke="var(--color-accent)" strokeWidth="1.5" strokeDasharray="4 4" />
-              <circle cx="50%" cy="50%" r="120" fill="none" stroke="var(--color-secondary)" opacity="0.3" strokeWidth="1" strokeDasharray="3 3" />
-
-              {/* Street Names */}
-              <text x="15" y="42%" fill="var(--color-secondary)" fontSize="10" fontWeight="600" letterSpacing="1">
-                CIVIC EXPRESS CORRIDOR
-              </text>
-              <text x="39%" y="25" fill="var(--color-secondary)" fontSize="9" fontWeight="600">
-                RELIEF AVE
-              </text>
-            </svg>
-          </div>
-        )}
-
-        {/* Clickable Overlay Plane for Interactive Pin Placement */}
-        {interactive && (
-          <button
-            type="button"
-            aria-label="Click anywhere on the map to set pickup pin"
-            onClick={handleMapClick}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              zIndex: 5,
-              border: 0,
-              background: 'transparent',
-              cursor: 'crosshair',
-            }}
+            ref={mapContainerRef}
+            aria-label="Interactive map view"
+            style={{ width: '100%', height: '100%' }}
           />
-        )}
-
-        {/* Visual Staging Pin — Dynamically Positioned to User's Click */}
-        <div
-          style={{
-            position: 'absolute',
-            left: `${pinXPercent}%`,
-            top: `${pinYPercent}%`,
-            transform: 'translate(-50%, -100%)',
-            zIndex: 6,
-            textAlign: 'center',
-            pointerEvents: 'none',
-            transition: 'left 0.15s ease-out, top 0.15s ease-out',
-          }}
-        >
+        ) : (
+          /* JSDOM Accessible Test Representation */
           <div
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50% 50% 50% 0',
-              background: 'var(--color-accent)',
-              transform: 'rotate(-45deg)',
-              margin: '0 auto',
+              width: '100%',
+              height: '100%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(46, 125, 50, 0.45)',
-              border: '2px solid #ffffff',
+              background: 'var(--color-canvas)',
+              color: 'var(--color-secondary)',
+              fontSize: '0.875rem',
             }}
           >
-            <span
-              style={{
-                transform: 'rotate(45deg)',
-                color: '#ffffff',
-                fontSize: '1.1rem',
-              }}
-            >
-              📍
+            <span>
+              Map Viewport ({validLat.toFixed(4)}, {validLng.toFixed(4)})
             </span>
           </div>
+        )}
 
+        {/* Real-time Instructions Overlay */}
+        {interactive && (
           <div
             style={{
-              marginTop: '0.35rem',
-              background: 'var(--color-surface)',
-              padding: '0.2rem 0.6rem',
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              zIndex: 400,
+              background: 'rgba(255, 255, 255, 0.92)',
+              padding: '4px 10px',
               borderRadius: 'var(--radius-sm)',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
               fontSize: '0.75rem',
-              fontWeight: 700,
               color: 'var(--color-ink)',
-              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
               border: '1px solid var(--color-border)',
             }}
           >
-            {interactive ? `📍 ${validLat.toFixed(4)}, ${validLng.toFixed(4)}` : address || `${validLat.toFixed(4)}, ${validLng.toFixed(4)}`}
+            💡 Click anywhere or drag the pin to set pickup point
           </div>
-        </div>
-
-        {/* Multi-Marker Discovery Pins */}
-        {markers &&
-          markers.map((m, index) => {
-            const isSelected = selectedMarkerId === m.id;
-            const angle = (index * (360 / Math.max(1, markers.length))) * (Math.PI / 180);
-            const dist = Math.min(130, Math.max(45, (m.distanceKm || 5) * 12));
-            const offsetX = Math.cos(angle) * dist;
-            const offsetY = Math.sin(angle) * dist * 0.65;
-
-            return (
-              <button
-                key={m.id}
-                type="button"
-                style={{
-                  position: 'absolute',
-                  left: `calc(50% + ${offsetX}px)`,
-                  top: `calc(50% + ${offsetY}px)`,
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: isSelected ? 12 : 7,
-                  background: isSelected ? 'var(--color-accent)' : 'var(--color-surface)',
-                  color: isSelected ? '#ffffff' : 'var(--color-ink)',
-                  border: isSelected ? '2px solid #ffffff' : '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '0.25rem 0.5rem',
-                  boxShadow: isSelected ? '0 4px 12px rgba(46, 125, 50, 0.4)' : '0 2px 6px rgba(0,0,0,0.15)',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  whiteSpace: 'nowrap',
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onMarkerSelect) onMarkerSelect(m);
-                  if (m.onClick) m.onClick();
-                }}
-              >
-                <span>🍱</span>
-                <strong>{m.portions ? `${m.portions}p` : 'Surplus'}</strong>
-                <span style={{ opacity: 0.85 }}>({m.distanceKm ? `${m.distanceKm.toFixed(1)}km` : m.city || 'Local'})</span>
-              </button>
-            );
-          })}
+        )}
       </div>
 
-      {/* Real-time Interaction Status helper */}
-      {interactive && (
+      {/* Interaction Status helper */}
+      {interactive && feedbackMsg && (
         <div
           style={{
             padding: '0.4rem 1rem',
@@ -512,14 +565,13 @@ export default function CivicMap({
             justifyContent: 'space-between',
             alignItems: 'center',
             fontSize: '0.75rem',
-            color: 'var(--color-secondary)',
+            color: 'var(--color-accent)',
+            fontWeight: 600,
           }}
         >
-          <span>
-            {lastAction ? `✓ ${lastAction}` : '💡 Click anywhere on the map to set the exact delivery pickup location.'}
-          </span>
-          <span style={{ fontFamily: 'monospace' }}>
-            GPS: {validLat.toFixed(4)}, {validLng.toFixed(4)}
+          <span>✓ {feedbackMsg}</span>
+          <span style={{ fontFamily: 'monospace', color: 'var(--color-secondary)' }}>
+            Coordinates: {validLat.toFixed(4)}, {validLng.toFixed(4)}
           </span>
         </div>
       )}
@@ -546,7 +598,10 @@ export default function CivicMap({
               <strong style={{ fontSize: '0.875rem' }}>{activeMarker.label}</strong>
             </div>
             <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-secondary)' }}>
-              {activeMarker.portions} portions available • {activeMarker.distanceKm !== undefined ? `${activeMarker.distanceKm.toFixed(1)} km straight-line distance` : activeMarker.city || ''}
+              {activeMarker.portions} portions available •{' '}
+              {activeMarker.distanceKm !== undefined
+                ? `${activeMarker.distanceKm.toFixed(1)} km straight-line distance`
+                : activeMarker.city || ''}
             </p>
           </div>
 
@@ -579,7 +634,7 @@ export default function CivicMap({
           }}
         >
           <span style={{ fontSize: '0.8125rem', color: 'var(--color-secondary)' }}>
-            🚚 Dispatch vehicle GPS destination: <strong>{validLat.toFixed(4)}, {validLng.toFixed(4)}</strong>
+            🚚 Dispatch vehicle destination: <strong>{validLat.toFixed(4)}, {validLng.toFixed(4)}</strong>
           </span>
 
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
