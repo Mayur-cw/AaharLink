@@ -45,6 +45,7 @@ export function sessionMiddleware(): RequestHandler {
           sessionToken: session.id,
           csrfToken: session.csrfToken,
         } satisfies Principal;
+        res.setHeader('X-CSRF-Token', session.csrfToken);
       }
     }
 
@@ -125,7 +126,7 @@ export function requireCsrf(): RequestHandler {
 
 export const authRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  limit: 5, // 5 attempts per min per IP/account
+  limit: process.env.NODE_ENV === 'production' ? 10 : 60, // 60 attempts in dev/demo mode
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   skip: () => process.env.NODE_ENV === 'test',
