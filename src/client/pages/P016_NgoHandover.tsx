@@ -48,6 +48,15 @@ export default function NgoHandoverPage() {
     fetchClaim();
   }, [fetchClaim]);
 
+  useEffect(() => {
+    if (claim && claim.status === 'Active') {
+      const interval = setInterval(() => {
+        fetchClaim();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [claim?.status, fetchClaim]);
+
   const handleCollect = async () => {
     if (!claim || !id) return;
 
@@ -79,6 +88,7 @@ export default function NgoHandoverPage() {
         actualPortions: portionsNum,
         recipientAffirmation: true,
         expectedVersion: claim.version,
+        version: claim.version,
       });
 
       setShowCollectDialog(false);
@@ -104,8 +114,8 @@ export default function NgoHandoverPage() {
     e.preventDefault();
     if (!claim || !id) return;
 
-    if (cancelReason.trim().length < 5) {
-      toast.error('Cancellation reason must be at least 5 characters.');
+    if (cancelReason.trim().length < 10) {
+      toast.error('Cancellation reason must be at least 10 characters.');
       return;
     }
 
@@ -113,6 +123,7 @@ export default function NgoHandoverPage() {
     try {
       await api.post(`/api/ngo/claims/${id}/cancel`, {
         reason: cancelReason.trim(),
+        expectedVersion: claim.version,
         version: claim.version,
       });
 
@@ -249,6 +260,40 @@ export default function NgoHandoverPage() {
           </div>
         </div>
 
+        {/* Status Callout Banner */}
+        {claim.status === 'Active' && (
+          <div className="status-callout" style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'var(--color-amber-light)', border: '1px solid var(--color-amber-urgent)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: 'var(--color-amber-urgent)', fontSize: '1.1rem' }}>
+                  ⏳ Awaiting Donor Readiness Confirmation
+                </h3>
+                <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-ink)', lineHeight: 1.5 }}>
+                  The food donor is currently packaging and staging the portions at the dispatch address. Proceed to the facility. Once the donor marks the food ready on their dashboard, they will receive a 6-digit verification code to share with you at vehicle loading.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn--primary btn--sm"
+                onClick={fetchClaim}
+              >
+                Check Readiness Status ↻
+              </button>
+            </div>
+          </div>
+        )}
+
+        {claim.status === 'Ready' && (
+          <div className="status-callout" style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'var(--color-accent-light)', border: '2px solid var(--color-accent)', borderRadius: 'var(--radius-md)' }}>
+            <h3 style={{ margin: 0, color: 'var(--color-accent-hover)', fontSize: '1.1rem' }}>
+              ✅ Donor Is Ready For Handover!
+            </h3>
+            <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-ink)', lineHeight: 1.5 }}>
+              Portions are packaged and staged. Request the one-time 6-digit physical handover code from the donor staff on-site and enter it below to record custody transfer.
+            </p>
+          </div>
+        )}
+
         {/* Collection Handover Form if Active/Ready */}
         {!isCompleted && !isCancelled ? (
           <div className="collection-form-panel" style={{ padding: '1.5rem', background: 'var(--color-accent-light)', borderRadius: 'var(--radius-md)', border: '2px solid var(--color-accent)' }}>
@@ -318,14 +363,19 @@ export default function NgoHandoverPage() {
             </div>
 
             <div className="form-actions" style={{ marginTop: '1.5rem' }}>
+              {claim.status === 'Active' && (
+                <div style={{ marginBottom: '0.75rem', color: 'var(--color-amber-urgent)', fontSize: '0.875rem', fontWeight: 600 }}>
+                  ⚠ Awaiting donor-ready status before code verification can be submitted. The button below unlocks once the donor confirms readiness.
+                </div>
+              )}
               <button
                 type="button"
                 data-testid="EL-155"
                 className="btn btn--primary btn--lg full-width"
                 onClick={() => setShowCollectDialog(true)}
-                disabled={!handoverCode || !actualPortions || !declarationChecked}
+                disabled={claim.status !== 'Ready' || !handoverCode || !actualPortions || !declarationChecked || collecting}
               >
-                Open handover confirmation dialog
+                {claim.status === 'Active' ? 'Awaiting Donor Readiness...' : 'Open handover confirmation dialog'}
               </button>
             </div>
           </div>
@@ -405,7 +455,7 @@ export default function NgoHandoverPage() {
             <form onSubmit={handleCancelClaim} noValidate>
               <div className="form-group">
                 <label htmlFor="can-reason-input" className="form-label">
-                  Cancellation Reason (min 5 characters) <span className="required-indicator">*</span>
+                  Cancellation Reason (min 10 characters) <span className="required-indicator">*</span>
                 </label>
                 <textarea
                   id="can-reason-input"

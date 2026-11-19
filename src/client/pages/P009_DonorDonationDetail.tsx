@@ -41,17 +41,33 @@ export default function DonorDonationDetailPage() {
 
   useEffect(() => {
     fetchDetail();
-  }, [fetchDetail]);
+    if (id) {
+      const stored = sessionStorage.getItem(`aaharlink_code_${id}`);
+      if (stored) {
+        setHandoverCode(stored);
+      }
+    }
+  }, [fetchDetail, id]);
+
+  useEffect(() => {
+    if (detail && (detail.status === 'Completed' || detail.status === 'Cancelled') && id) {
+      sessionStorage.removeItem(`aaharlink_code_${id}`);
+    }
+  }, [detail, id]);
 
   const handleConfirmReady = async () => {
     if (!detail) return;
     setReadySubmitting(true);
     try {
       const res = await api.post<PickupReadinessReceipt>(`/api/donor/donations/${detail.id}/ready`, {
+        expectedVersion: detail.version,
         version: detail.version,
       });
 
       setHandoverCode(res.handoverCode);
+      if (id) {
+        sessionStorage.setItem(`aaharlink_code_${id}`, res.handoverCode);
+      }
       setShowReadyDialog(false);
       toast.success('Pickup readiness confirmed! One-time 6-digit handover code issued.');
       await fetchDetail();
@@ -80,8 +96,8 @@ export default function DonorDonationDetailPage() {
   const handleConfirmCancel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!detail) return;
-    if (cancelReason.trim().length < 5) {
-      toast.error('Cancellation reason must be at least 5 characters.');
+    if (cancelReason.trim().length < 10) {
+      toast.error('Cancellation reason must be at least 10 characters.');
       return;
     }
 
@@ -89,6 +105,7 @@ export default function DonorDonationDetailPage() {
     try {
       await api.post(`/api/donor/donations/${detail.id}/cancel`, {
         reason: cancelReason.trim(),
+        expectedVersion: detail.version,
         version: detail.version,
       });
 
@@ -229,8 +246,8 @@ export default function DonorDonationDetailPage() {
                 </p>
               </div>
 
-              {handoverCode && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {handoverCode ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <div className="code-box" style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '4px', background: 'var(--color-surface)', padding: '0.5rem 1.25rem', border: '1px solid var(--color-accent)', borderRadius: 'var(--radius-sm)' }}>
                     {handoverCode}
                   </div>
@@ -241,6 +258,24 @@ export default function DonorDonationDetailPage() {
                     onClick={handleCopyCode}
                   >
                     Copy handover code
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--outline btn--sm"
+                    onClick={() => setShowReadyDialog(true)}
+                  >
+                    Regenerate Code ↻
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    data-testid="EL-090"
+                    className="btn btn--primary"
+                    onClick={() => setShowReadyDialog(true)}
+                  >
+                    Reveal / Regenerate Code
                   </button>
                 </div>
               )}
@@ -331,9 +366,13 @@ export default function DonorDonationDetailPage() {
       {showReadyDialog && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="ready-dialog-title">
           <div className="modal-box">
-            <h2 id="ready-dialog-title" className="card-title">Confirm Pickup Readiness</h2>
+            <h2 id="ready-dialog-title" className="card-title">
+              {isPickupConfirmed ? 'Regenerate Handover Code' : 'Confirm Pickup Readiness'}
+            </h2>
             <p>
-              Confirming readiness indicates that the food is fully prepared, packaged in food-grade containers, and waiting at the dispatch address.
+              {isPickupConfirmed
+                ? 'Portions are already marked ready. You can generate a fresh 6-digit handover code for the receiving NGO driver on site.'
+                : 'Confirming readiness indicates that the food is fully prepared, packaged in food-grade containers, and waiting at the dispatch address.'}
             </p>
             <p style={{ fontWeight: 600, color: 'var(--color-accent)' }}>
               This will issue an authoritative, one-time 6-digit handover code.
@@ -355,7 +394,7 @@ export default function DonorDonationDetailPage() {
                 onClick={handleConfirmReady}
                 disabled={readySubmitting}
               >
-                {readySubmitting ? 'Issuing Code...' : 'Confirm pickup ready and issue handover code'}
+                {readySubmitting ? 'Issuing Code...' : isPickupConfirmed ? 'Generate Fresh Handover Code' : 'Confirm pickup ready and issue handover code'}
               </button>
             </div>
           </div>
@@ -376,7 +415,7 @@ export default function DonorDonationDetailPage() {
             <form onSubmit={handleConfirmCancel} noValidate>
               <div className="form-group">
                 <label htmlFor="cancel-reason-input" className="form-label">
-                  Cancellation Reason (min 5 characters) <span className="required-indicator">*</span>
+                  Cancellation Reason (min 10 characters) <span className="required-indicator">*</span>
                 </label>
                 <textarea
                   id="cancel-reason-input"

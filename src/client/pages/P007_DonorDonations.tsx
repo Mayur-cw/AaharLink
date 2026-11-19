@@ -312,13 +312,13 @@ export default function DonorDonationsPage() {
                       <td>
                         <button
                           type="button"
-                          className="btn btn--outline btn--sm"
+                          className={`btn ${d.status === 'Claimed' ? 'btn--primary' : 'btn--outline'} btn--sm`}
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/donor/donations/${d.id}`);
                           }}
                         >
-                          Manage →
+                          {d.status === 'Claimed' ? 'Stage & Issue Code →' : d.status === 'Pickup Confirmed' ? 'View Code →' : d.status === 'Available' ? 'Manage Listing →' : 'View Details →'}
                         </button>
                       </td>
                     </tr>

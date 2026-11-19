@@ -1384,7 +1384,7 @@ export class SqliteRepository {
       if (donation.version !== expectedVersion) {
         throw new Error('CONFLICT: Donation version mismatch; reload current state.');
       }
-      if (donation.status !== 'Claimed') {
+      if (donation.status !== 'Claimed' && donation.status !== 'Pickup Confirmed') {
         throw new Error(`INVALID_INPUT: Pickup cannot be confirmed in state "${donation.status}".`);
       }
 
@@ -1393,9 +1393,9 @@ export class SqliteRepository {
         throw new Error('GONE: Pickup deadline has elapsed.');
       }
 
-      // Find active claim
-      const claimRow = db.prepare(`SELECT * FROM claims WHERE donation_id = ? AND status = 'Active'`).get(donationId) as Record<string, unknown> | undefined;
-      if (!claimRow) throw new Error('NOT_FOUND: Active claim not found for this donation.');
+      // Find active or ready claim
+      const claimRow = db.prepare(`SELECT * FROM claims WHERE donation_id = ? AND status IN ('Active', 'Ready')`).get(donationId) as Record<string, unknown> | undefined;
+      if (!claimRow) throw new Error('NOT_FOUND: Active or ready claim not found for this donation.');
       const claim = this.mapClaim(claimRow);
 
       // Generate random 6-digit handover code
@@ -1428,22 +1428,24 @@ export class SqliteRepository {
         entityType: 'Donation',
         entityId: donationId,
         eventType: 'donation_ready',
-        fromStatus: 'Claimed',
+        fromStatus: donation.status,
         toStatus: 'Pickup Confirmed',
-        reason: 'Donor confirmed pickup readiness; code generated',
+        reason: donation.status === 'Pickup Confirmed' ? 'Donor regenerated pickup handover code' : 'Donor confirmed pickup readiness; code generated',
         metadataRedacted: { claimId: claim.id },
       });
 
-      // Notify NGO owner
-      const ngoOrg = this.getOrgById(claim.ngoOrganizationId);
-      if (ngoOrg) {
-        this.createNotificationInternal(db, {
-          userId: ngoOrg.ownerUserId,
-          kind: 'ready',
-          message: `Donor is ready for pickup! Provide the handover code to complete collection.`,
-          objectType: 'claim',
-          objectId: claim.id,
-        });
+      // Notify NGO owner on first transition from Claimed
+      if (donation.status === 'Claimed') {
+        const ngoOrg = this.getOrgById(claim.ngoOrganizationId);
+        if (ngoOrg) {
+          this.createNotificationInternal(db, {
+            userId: ngoOrg.ownerUserId,
+            kind: 'ready',
+            message: `Donor is ready for pickup! Provide the handover code to complete collection.`,
+            objectType: 'claim',
+            objectId: claim.id,
+          });
+        }
       }
 
       return {

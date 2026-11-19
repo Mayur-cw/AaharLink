@@ -352,9 +352,16 @@ export const donationPatchSchema = z
       .min(5, { message: 'Enter the pickup address.' })
       .max(250, { message: 'Pickup address cannot exceed 250 characters.' })
       .optional(),
-    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }),
+    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }).optional(),
+    version: z.number().int().min(1).optional(),
   })
-  .strict();
+  .refine((d) => d.expectedVersion !== undefined || d.version !== undefined, {
+    message: 'Donation changed; reload its current state.',
+  })
+  .transform((d) => ({
+    ...d,
+    expectedVersion: (d.expectedVersion ?? d.version) as number,
+  }));
 export type DonationPatchBody = z.infer<typeof donationPatchSchema>;
 
 // VR-035, VR-021
@@ -365,17 +372,30 @@ export const donationCancelSchema = z
       .trim()
       .min(10, { message: 'Add a clear reason for this decision.' })
       .max(500, { message: 'Reason cannot exceed 500 characters.' }),
-    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }),
+    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }).optional(),
+    version: z.number().int().min(1).optional(),
   })
-  .strict();
+  .refine((d) => d.expectedVersion !== undefined || d.version !== undefined, {
+    message: 'Donation changed; reload its current state.',
+  })
+  .transform((d) => ({
+    reason: d.reason,
+    expectedVersion: (d.expectedVersion ?? d.version) as number,
+  }));
 export type DonationCancelBody = z.infer<typeof donationCancelSchema>;
 
 // VR-021, VR-032
 export const pickupReadySchema = z
   .object({
-    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }),
+    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }).optional(),
+    version: z.number().int().min(1).optional(),
   })
-  .strict();
+  .refine((d) => d.expectedVersion !== undefined || d.version !== undefined, {
+    message: 'Donation changed; reload its current state.',
+  })
+  .transform((d) => ({
+    expectedVersion: (d.expectedVersion ?? d.version) as number,
+  }));
 export type PickupReadyBody = z.infer<typeof pickupReadySchema>;
 
 // VR-024, VR-021, VR-029
@@ -384,9 +404,16 @@ export const claimCreateSchema = z
     assessedDeclaration: z.literal(true, {
       message: 'Review suitability before claiming.',
     }),
-    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }),
+    expectedVersion: z.number().int().min(1, { message: 'Donation changed; reload its current state.' }).optional(),
+    version: z.number().int().min(1).optional(),
   })
-  .strict();
+  .refine((d) => d.expectedVersion !== undefined || d.version !== undefined, {
+    message: 'Donation changed; reload its current state.',
+  })
+  .transform((d) => ({
+    assessedDeclaration: d.assessedDeclaration,
+    expectedVersion: (d.expectedVersion ?? d.version) as number,
+  }));
 export type ClaimCreateBody = z.infer<typeof claimCreateSchema>;
 
 // VR-035, VR-021
@@ -397,9 +424,16 @@ export const claimCancelSchema = z
       .trim()
       .min(10, { message: 'Add a clear reason for this decision.' })
       .max(500, { message: 'Reason cannot exceed 500 characters.' }),
-    expectedVersion: z.number().int().min(1, { message: 'Claim changed; reload its current state.' }),
+    expectedVersion: z.number().int().min(1, { message: 'Claim changed; reload its current state.' }).optional(),
+    version: z.number().int().min(1).optional(),
   })
-  .strict();
+  .refine((d) => d.expectedVersion !== undefined || d.version !== undefined, {
+    message: 'Claim changed; reload its current state.',
+  })
+  .transform((d) => ({
+    reason: d.reason,
+    expectedVersion: (d.expectedVersion ?? d.version) as number,
+  }));
 export type ClaimCancelBody = z.infer<typeof claimCancelSchema>;
 
 // VR-030, VR-031, VR-033, VR-021
@@ -417,9 +451,18 @@ export const claimCollectSchema = z
     recipientAffirmation: z.literal(true, {
       message: 'Confirm you assessed the food before collecting.',
     }),
-    expectedVersion: z.number().int().min(1, { message: 'Handover state has changed; refresh the receipt.' }),
+    expectedVersion: z.number().int().min(1, { message: 'Handover state has changed; refresh the receipt.' }).optional(),
+    version: z.number().int().min(1).optional(),
   })
-  .strict();
+  .refine((d) => d.expectedVersion !== undefined || d.version !== undefined, {
+    message: 'Handover state has changed; refresh the receipt.',
+  })
+  .transform((d) => ({
+    handoverCode: d.handoverCode,
+    actualPortions: d.actualPortions,
+    recipientAffirmation: d.recipientAffirmation,
+    expectedVersion: (d.expectedVersion ?? d.version) as number,
+  }));
 export type ClaimCollectBody = z.infer<typeof claimCollectSchema>;
 
 // VR-008, VR-009, VR-006, VR-011
