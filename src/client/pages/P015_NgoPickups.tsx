@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
 import type { OwnClaimSummary, Paginated } from '../../shared/contracts.js';
 
 export default function NgoPickupsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -17,10 +18,23 @@ export default function NgoPickupsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Filters
-  const [activeArchived, setActiveArchived] = useState<'all' | 'active' | 'archived'>('active');
+  const tabParam = searchParams.get('tab') || searchParams.get('view');
+  const initialFilter = tabParam === 'archived' || tabParam === 'history' ? 'archived' : tabParam === 'all' ? 'all' : 'active';
+  const [activeArchived, setActiveArchived] = useState<'all' | 'active' | 'archived'>(initialFilter);
   const [statusFilter, setStatusFilter] = useState('');
   const [deadlineFilter, setDeadlineFilter] = useState('');
   const [sortAsc, setSortAsc] = useState(false);
+
+  useEffect(() => {
+    const t = searchParams.get('tab') || searchParams.get('view');
+    if (t === 'archived' || t === 'history') {
+      setActiveArchived('archived');
+    } else if (t === 'all') {
+      setActiveArchived('all');
+    } else if (t === 'active') {
+      setActiveArchived('active');
+    }
+  }, [searchParams]);
 
   const fetchClaims = useCallback(async (targetCursor?: string) => {
     setLoading(true);
@@ -154,6 +168,40 @@ export default function NgoPickupsPage() {
           </div>
         )}
 
+        {/* Quick Segmented Tabs */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn btn--sm ${activeArchived === 'active' ? 'btn--primary' : 'btn--outline'}`}
+            onClick={() => {
+              setActiveArchived('active');
+              setSearchParams({ tab: 'active' });
+            }}
+          >
+            🚚 Active Pickups in Transit
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${activeArchived === 'archived' ? 'btn--primary' : 'btn--outline'}`}
+            onClick={() => {
+              setActiveArchived('archived');
+              setSearchParams({ tab: 'archived' });
+            }}
+          >
+            📜 Completed Rescues & History
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${activeArchived === 'all' ? 'btn--primary' : 'btn--outline'}`}
+            onClick={() => {
+              setActiveArchived('all');
+              setSearchParams({ tab: 'all' });
+            }}
+          >
+            All Claims
+          </button>
+        </div>
+
         {/* Filters */}
         <div className="filter-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem', padding: '1rem', background: 'var(--color-canvas)', borderRadius: 'var(--radius-sm)' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
@@ -273,13 +321,13 @@ export default function NgoPickupsPage() {
                       <td>
                         <button
                           type="button"
-                          className="btn btn--outline btn--sm"
+                          className={`btn ${c.status === 'Ready' ? 'btn--primary' : 'btn--outline'} btn--sm`}
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/ngo/pickups/${c.id}`);
                           }}
                         >
-                          Manage Pickup →
+                          {c.status === 'Ready' ? 'Verify Code →' : c.status === 'Completed' ? 'View Receipt →' : 'Manage Pickup →'}
                         </button>
                       </td>
                     </tr>

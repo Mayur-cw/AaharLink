@@ -757,6 +757,7 @@ export interface PickupReadinessReceipt {
 export interface NgoDashboardDTO {
   availableDonationsNearbyCount: number;
   activeClaimsCount: number;
+  readyForHandoverCount?: number;
   completedPickupsCount: number;
   currentCapacity: {
     maxPortions: number;
@@ -764,6 +765,7 @@ export interface NgoDashboardDTO {
     availablePortions: number;
   };
   urgentPickups: OwnClaimSummary[];
+  recentCompletedRescues?: OwnClaimSummary[];
 }
 
 export interface DonationPublicPreview {

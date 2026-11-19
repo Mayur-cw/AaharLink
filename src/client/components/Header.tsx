@@ -106,8 +106,13 @@ export function Header() {
                   </NavLink>
                 </li>
                 <li>
-                  <NavLink to="/ngo/pickups" className={navClass} onClick={() => setMobileMenuOpen(false)}>
+                  <NavLink to="/ngo/pickups" end className={navClass} onClick={() => setMobileMenuOpen(false)}>
                     My Pickups
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/ngo/pickups?tab=archived" className={navClass} onClick={() => setMobileMenuOpen(false)}>
+                    History
                   </NavLink>
                 </li>
                 <li>

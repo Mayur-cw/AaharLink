@@ -184,6 +184,14 @@ export default function App() {
                         </RouteGuard>
                       }
                     />
+                    <Route
+                      path="/ngo/history"
+                      element={
+                        <RouteGuard allowedRoles={['ngo']}>
+                          <Navigate to="/ngo/pickups?tab=archived" replace />
+                        </RouteGuard>
+                      }
+                    />
 
                     {/* Coordinator Operations Portal (P-018..P-024) */}
                     <Route

@@ -3,27 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useToast } from '../context/ToastContext.js';
-
-interface NgoDashboardData {
-  organizationName: string;
-  verificationStatus: string;
-  maxPortions: number;
-  remainingCapacity: number;
-  operatingRadiusKm: number;
-  activeClaimsCount: number;
-  pendingPickupCount: number;
-  completedRescuesCount: number;
-  activeClaims: Array<{
-    id: string;
-    donationId: string;
-    foodCategory: string;
-    description: string;
-    claimedPortions: number;
-    pickupDeadline: string;
-    status: string;
-    donorCity: string;
-  }>;
-}
+import type { NgoDashboardDTO } from '../../shared/contracts.js';
 
 export default function NgoDashboardPage() {
   const navigate = useNavigate();
@@ -32,13 +12,13 @@ export default function NgoDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [data, setData] = useState<NgoDashboardData | null>(null);
+  const [data, setData] = useState<NgoDashboardDTO | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await api<NgoDashboardData>('/api/ngo/dashboard');
+      const res = await api<NgoDashboardDTO>('/api/ngo/dashboard');
       setData(res);
     } catch (err: unknown) {
       const msg = (err as Error).message || 'Failed to load NGO mission control.';
@@ -53,13 +33,19 @@ export default function NgoDashboardPage() {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  const availablePortions = data?.currentCapacity?.availablePortions ?? 0;
+  const maxPortions = data?.currentCapacity?.maxPortions ?? 0;
+  const activePickups = data?.activeClaimsCount ?? 0;
+  const readyCount = data?.readyForHandoverCount ?? 0;
+  const completedCount = data?.completedPickupsCount ?? 0;
+
   return (
     <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 className="heading-xl">NGO Mission Control</h1>
           <p style={{ color: 'var(--color-secondary)' }}>
-            Agency: <strong>{data?.organizationName || organization?.name || 'Verified Relief NGO'}</strong>
+            Agency: <strong>{organization?.name || 'Verified Relief NGO'}</strong>
           </p>
         </div>
 
@@ -93,56 +79,90 @@ export default function NgoDashboardPage() {
 
       {/* Metrics Row */}
       <div className="grid grid--4" style={{ marginBottom: '2rem' }}>
-        <div className="metric-card">
+        <button
+          type="button"
+          className="metric-card"
+          onClick={() => navigate('/ngo/capacity')}
+          style={{ textAlign: 'left', background: 'var(--color-surface)', border: '1px solid var(--color-border)', cursor: 'pointer', width: '100%', font: 'inherit' }}
+          title="Click to view and configure vehicle capacity"
+        >
           <span className="metric-label">Remaining Portion Capacity</span>
           <span className="metric-value" style={{ color: 'var(--color-accent)' }}>
-            {data?.remainingCapacity ?? 0}
+            {availablePortions}
           </span>
-          <span className="metric-hint">of {data?.maxPortions ?? 0} limit</span>
-        </div>
-        <div className="metric-card">
+          <span className="metric-hint">of {maxPortions} portion limit</span>
+        </button>
+        <button
+          type="button"
+          className="metric-card"
+          onClick={() => navigate('/ngo/pickups?tab=active')}
+          style={{ textAlign: 'left', background: 'var(--color-surface)', border: '1px solid var(--color-border)', cursor: 'pointer', width: '100%', font: 'inherit' }}
+          title="Click to view all active dispatches"
+        >
           <span className="metric-label">Active Pickups</span>
-          <span className="metric-value">{data?.activeClaimsCount ?? 0}</span>
+          <span className="metric-value">{activePickups}</span>
           <span className="metric-hint">Currently in transit</span>
-        </div>
-        <div className="metric-card">
+        </button>
+        <button
+          type="button"
+          className="metric-card"
+          onClick={() => navigate('/ngo/pickups?tab=active')}
+          style={{ textAlign: 'left', background: 'var(--color-surface)', border: '1px solid var(--color-border)', cursor: 'pointer', width: '100%', font: 'inherit' }}
+          title="Click to view pickups ready for handover"
+        >
           <span className="metric-label">Ready for Handover</span>
-          <span className="metric-value">{data?.pendingPickupCount ?? 0}</span>
-          <span className="metric-hint">Donor code issued</span>
-        </div>
-        <div className="metric-card">
+          <span className="metric-value" style={{ color: readyCount > 0 ? 'var(--color-accent)' : undefined }}>
+            {readyCount}
+          </span>
+          <span className="metric-hint">Donor code waiting</span>
+        </button>
+        <button
+          type="button"
+          className="metric-card"
+          onClick={() => navigate('/ngo/pickups?tab=archived')}
+          style={{ textAlign: 'left', background: 'var(--color-surface)', border: '1px solid var(--color-border)', cursor: 'pointer', width: '100%', font: 'inherit' }}
+          title="Click to view completed rescue history"
+        >
           <span className="metric-label">Completed Deliveries</span>
-          <span className="metric-value">{data?.completedRescuesCount ?? 0}</span>
-          <span className="metric-hint">Verified food rescues</span>
-        </div>
+          <span className="metric-value">{completedCount}</span>
+          <span className="metric-hint">Verified food rescues →</span>
+        </button>
       </div>
 
       {/* Active Pickups Table */}
       <div className="card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 className="card-title">Current Pickups in Progress</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h2 className="card-title">Current Pickups in Progress</h2>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-secondary)' }}>
+              Active dispatches requiring vehicle pickup and on-site code verification.
+            </p>
+          </div>
           <button
             type="button"
             data-testid="EL-113"
             className="btn btn--outline btn--sm"
             onClick={() => navigate('/ngo/pickups')}
           >
-            My pickups →
+            My pickups ({activePickups}) →
           </button>
         </div>
 
         {loading ? (
           <p role="status">Loading active dispatches...</p>
-        ) : !data?.activeClaims || data.activeClaims.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-secondary)' }}>
-            <p>No active pickups claimed right now.</p>
+        ) : !data?.urgentPickups || data.urgentPickups.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2.5rem 1.5rem', background: 'var(--color-canvas)', borderRadius: 'var(--radius-sm)' }}>
+            <span style={{ fontSize: '2.5rem' }}>🚚</span>
+            <h3 style={{ margin: '0.5rem 0 0.25rem 0', fontSize: '1.1rem' }}>No active pickups claimed right now.</h3>
+            <p style={{ margin: '0 0 1rem 0', color: 'var(--color-secondary)', fontSize: '0.875rem' }}>
+              Portions you claim from food donors will appear here with real-time status and pickup navigation.
+            </p>
             <button
               type="button"
               className="btn btn--primary btn--sm"
-              style={{ marginTop: '0.75rem' }}
               onClick={() => navigate('/ngo/discover')}
             >
-              Find Available Food Nearby
+              🔍 Find Available Food Nearby
             </button>
           </div>
         ) : (
@@ -159,26 +179,99 @@ export default function NgoDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.activeClaims.map((c) => (
+                {data.urgentPickups.map((c) => {
+                  const isReady = c.status === 'Ready';
+                  return (
+                    <tr key={c.id}>
+                      <td>
+                        <span className={`badge ${isReady ? 'badge--success' : 'badge--warning'}`}>
+                          {isReady ? 'READY (CODE ISSUED)' : 'IN TRANSIT'}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{c.category}</strong>: {c.description}
+                      </td>
+                      <td>
+                        <strong>{c.claimedPortions}</strong> portions
+                      </td>
+                      <td>{c.donorCity}</td>
+                      <td>
+                        <span style={{ color: isReady ? 'var(--color-accent-hover)' : 'inherit', fontWeight: isReady ? 600 : 400 }}>
+                          {new Date(c.pickupDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className={`btn ${isReady ? 'btn--primary' : 'btn--outline'} btn--sm`}
+                          onClick={() => navigate(`/ngo/pickups/${c.id}`)}
+                        >
+                          {isReady ? 'Verify Handover Code →' : 'Pickup Details →'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Rescues & History Section */}
+      {data?.recentCompletedRescues && data.recentCompletedRescues.length > 0 && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div>
+              <h2 className="card-title">Recent Verified Rescues</h2>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-secondary)' }}>
+                Food rescues successfully verified and recorded in the immutable audit ledger.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn--outline btn--sm"
+              onClick={() => navigate('/ngo/pickups?tab=archived')}
+            >
+              Full Rescue History ({completedCount}) →
+            </button>
+          </div>
+
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Status</th>
+                  <th scope="col">Food Details</th>
+                  <th scope="col">Rescued Portions</th>
+                  <th scope="col">Donor City</th>
+                  <th scope="col">Date Rescued</th>
+                  <th scope="col">Audit Receipt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recentCompletedRescues.map((c) => (
                   <tr key={c.id}>
                     <td>
-                      <span className={`badge ${c.status === 'Ready' ? 'badge--success' : 'badge--warning'}`}>
-                        {c.status.toUpperCase()}
-                      </span>
+                      <span className="badge badge--info">DELIVERED & VERIFIED</span>
                     </td>
                     <td>
-                      <strong>{c.foodCategory}</strong>: {c.description}
+                      <strong>{c.category}</strong>: {c.description}
                     </td>
-                    <td>{c.claimedPortions}</td>
+                    <td>
+                      <strong style={{ color: 'var(--color-accent)' }}>{c.claimedPortions}</strong> portions
+                    </td>
                     <td>{c.donorCity}</td>
-                    <td>{new Date(c.pickupDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td>
+                      {new Date(c.pickupDeadline).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </td>
                     <td>
                       <button
                         type="button"
-                        className="btn btn--primary btn--sm"
+                        className="btn btn--outline btn--sm"
                         onClick={() => navigate(`/ngo/pickups/${c.id}`)}
                       >
-                        Handover Portal
+                        View Receipt →
                       </button>
                     </td>
                   </tr>
@@ -186,8 +279,8 @@ export default function NgoDashboardPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Action cards */}
       <div className="grid grid--3">

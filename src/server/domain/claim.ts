@@ -108,24 +108,34 @@ export function getNgoDashboardData(ngoOrgId: string): NgoDashboardDTO {
   const myClaims = repository.listClaimsForNgo(ngoOrgId, 100);
 
   let activeClaimsCount = 0;
+  let readyForHandoverCount = 0;
   let completedPickupsCount = 0;
   const urgentPickups: OwnClaimSummary[] = [];
+  const recentCompletedRescues: OwnClaimSummary[] = [];
 
   for (const c of myClaims.items) {
-    if (['Active', 'Ready'].includes(c.status)) {
+    if (c.status === 'Active') {
       activeClaimsCount++;
+      urgentPickups.push(toOwnClaimSummary(c, c.donation, { name: c.donorOrgName, city: c.donorCity }));
+    } else if (c.status === 'Ready') {
+      activeClaimsCount++;
+      readyForHandoverCount++;
       urgentPickups.push(toOwnClaimSummary(c, c.donation, { name: c.donorOrgName, city: c.donorCity }));
     } else if (c.status === 'Completed') {
       completedPickupsCount++;
+      recentCompletedRescues.push(toOwnClaimSummary(c, c.donation, { name: c.donorOrgName, city: c.donorCity }));
     }
   }
 
   // Sort urgent by pickupDeadline ASC
   urgentPickups.sort((a, b) => new Date(a.pickupDeadline).getTime() - new Date(b.pickupDeadline).getTime());
+  // Sort recent completed by deadline/date DESC
+  recentCompletedRescues.sort((a, b) => new Date(b.pickupDeadline).getTime() - new Date(a.pickupDeadline).getTime());
 
   return {
     availableDonationsNearbyCount: availableDonations.items.length,
     activeClaimsCount,
+    readyForHandoverCount,
     completedPickupsCount,
     currentCapacity: {
       maxPortions: capacity.maxPortions,
@@ -133,5 +143,6 @@ export function getNgoDashboardData(ngoOrgId: string): NgoDashboardDTO {
       availablePortions: capacity.availableRemainingPortions,
     },
     urgentPickups: urgentPickups.slice(0, 5),
+    recentCompletedRescues: recentCompletedRescues.slice(0, 5),
   };
 }
