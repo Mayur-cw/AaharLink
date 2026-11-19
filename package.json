@@ -62,5 +62,8 @@
     "vite": "^7.1.0",
     "vitest": "^3.2.0",
     "vitest-axe": "^0.1.0"
+  },
+  "overrides": {
+    "tinypool": "^2.2.0"
   }
 }
