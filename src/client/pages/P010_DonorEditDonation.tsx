@@ -77,7 +77,7 @@ export default function DonorEditDonationPage() {
         offeredPortions: portionsNum,
         pickupDeadline: new Date(pickupDeadline).toISOString(),
         pickupAddress: pickupAddress.trim() || undefined,
-        version: parseInt(version, 10),
+        expectedVersion: parseInt(version, 10),
       });
 
       toast.success('Donation listing updated successfully.');

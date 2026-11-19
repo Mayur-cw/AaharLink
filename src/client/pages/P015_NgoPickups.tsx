@@ -245,6 +245,7 @@ export default function NgoPickupsPage() {
                   <th scope="col">Portions</th>
                   <th scope="col">Donor City</th>
                   <th scope="col">Pickup Deadline</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -269,6 +270,18 @@ export default function NgoPickupsPage() {
                       <td>{c.claimedPortions}</td>
                       <td>{c.donorCity || 'City'}</td>
                       <td>{new Date(c.pickupDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn--outline btn--sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/ngo/pickups/${c.id}`);
+                          }}
+                        >
+                          Manage Pickup →
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

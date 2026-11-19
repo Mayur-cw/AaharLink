@@ -299,6 +299,7 @@ export default function NgoDiscoverPage() {
                   <th scope="col">City</th>
                   <th scope="col">Deadline</th>
                   <th scope="col">Eligibility</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -337,6 +338,18 @@ export default function NgoDiscoverPage() {
                             {d.ineligibleReason || 'Ineligible'}
                           </span>
                         )}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn--primary btn--sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/ngo/donations/${d.id}`);
+                          }}
+                        >
+                          Evaluate & Claim →
+                        </button>
                       </td>
                     </tr>
                   );

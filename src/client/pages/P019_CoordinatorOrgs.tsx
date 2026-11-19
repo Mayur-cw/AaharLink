@@ -258,6 +258,7 @@ export default function CoordinatorOrgsPage() {
                   <th scope="col">City</th>
                   <th scope="col">Contact Person</th>
                   <th scope="col">Applied Date</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -281,6 +282,18 @@ export default function CoordinatorOrgsPage() {
                       <td>{o.city}</td>
                       <td>{o.contactPerson}</td>
                       <td>{new Date(o.createdAt).toLocaleDateString()}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn--outline btn--sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/coordinator/organizations/${o.id}`);
+                          }}
+                        >
+                          Review →
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

@@ -113,6 +113,10 @@ export default function AccountPage() {
       setPasswordError('Please fill in both current and new passwords.');
       return;
     }
+    if (newPassword.length < 12) {
+      setPasswordError('Use a password of at least 12 characters.');
+      return;
+    }
 
     setPasswordSaving(true);
     setPasswordError(null);
@@ -125,6 +129,7 @@ export default function AccountPage() {
 
       setCurrentPassword('');
       setNewPassword('');
+      await refreshSession();
       toast.success('Security credentials updated successfully.');
     } catch (err: unknown) {
       const msg = (err as Error).message || 'Password change failed.';

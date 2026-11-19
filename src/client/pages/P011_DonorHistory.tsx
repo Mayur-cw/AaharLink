@@ -253,6 +253,7 @@ export default function DonorHistoryPage() {
                   <th scope="col">Description</th>
                   <th scope="col">Portions</th>
                   <th scope="col">Date</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -275,6 +276,18 @@ export default function DonorHistoryPage() {
                       <td>{d.description}</td>
                       <td>{d.offeredPortions}</td>
                       <td>{new Date(d.createdAt).toLocaleDateString()}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn--outline btn--sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/donor/donations/${d.id}`);
+                          }}
+                        >
+                          View Details →
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

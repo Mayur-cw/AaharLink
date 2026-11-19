@@ -285,6 +285,7 @@ export default function DonorDonationsPage() {
                   <th scope="col">Portions</th>
                   <th scope="col">Pickup Deadline</th>
                   <th scope="col">Claiming Agency</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -308,6 +309,18 @@ export default function DonorDonationsPage() {
                       <td>{d.offeredPortions}</td>
                       <td>{new Date(d.pickupDeadline).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
                       <td>{d.claimedByNgoName ? <span className="badge badge--warning">{d.claimedByNgoName}</span> : 'Unclaimed'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn--outline btn--sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/donor/donations/${d.id}`);
+                          }}
+                        >
+                          Manage →
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

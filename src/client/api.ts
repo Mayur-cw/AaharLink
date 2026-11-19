@@ -21,7 +21,8 @@ export function getCachedCsrfToken(): string | null {
 }
 
 interface ApiResponseEnvelope<T> {
-  success: boolean;
+  ok?: boolean;
+  success?: boolean;
   data?: T;
   error?: {
     code: string;
@@ -73,7 +74,7 @@ export async function api<T>(
 
     const json = (await res.json().catch(() => ({}))) as ApiResponseEnvelope<T>;
 
-    if (!res.ok || json.success === false) {
+    if (!res.ok || json.ok === false || json.success === false) {
       const code = json.error?.code || (res.status === 409 ? 'CONFLICT' : res.status === 401 ? 'UNAUTHORIZED' : res.status === 403 ? 'FORBIDDEN' : res.status === 404 ? 'NOT_FOUND' : 'REQUEST_FAILED');
       const message = json.error?.message || `Request failed with status ${res.status}`;
       throw new ApiError(res.status, code, message, json.error?.details);

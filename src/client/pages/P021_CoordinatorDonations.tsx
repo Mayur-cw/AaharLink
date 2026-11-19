@@ -298,6 +298,7 @@ export default function CoordinatorDonationsPage() {
                   <th scope="col">Portions</th>
                   <th scope="col">Pickup Deadline</th>
                   <th scope="col">Claiming NGO</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -324,6 +325,18 @@ export default function CoordinatorDonationsPage() {
                       <td>{d.portionsOffered}</td>
                       <td>{new Date(d.pickupDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                       <td>{d.claimNgoName || (d.claimStatus ? `Claim: ${d.claimStatus}` : '—')}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn--outline btn--sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/coordinator/donations/${d.id}`);
+                          }}
+                        >
+                          Investigate →
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
