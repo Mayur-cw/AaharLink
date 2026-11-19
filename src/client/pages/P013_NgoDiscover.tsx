@@ -40,7 +40,9 @@ export default function NgoDiscoverPage() {
       if (category) queryParams.set('category', category);
       if (minPortions) queryParams.set('minPortions', minPortions);
       if (maxDistanceKm) queryParams.set('maxKm', maxDistanceKm);
-      if (deadlineBefore) queryParams.set('before', new Date(deadlineBefore).toISOString());
+      if (deadlineBefore && !isNaN(Date.parse(deadlineBefore))) {
+        queryParams.set('before', new Date(deadlineBefore).toISOString());
+      }
       if (orderPreference) queryParams.set('sort', orderPreference);
       if (includeExpired) queryParams.set('includeExpired', 'true');
 

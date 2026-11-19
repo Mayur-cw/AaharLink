@@ -3,10 +3,12 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { rateLimit } from 'express-rate-limit';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getConfig } from './config.js';
 import { correlationMiddleware, sessionMiddleware } from './authz.js';
+import { createErrorEnvelope, responseCode } from '../shared/contracts.js';
 import { authRouter } from './routes/auth.js';
 import { accountRouter } from './routes/account.js';
 import { notificationsRouter } from './routes/notifications.js';
@@ -52,9 +54,20 @@ export function createApp() {
   app.use(
     rateLimit({
       windowMs: 15 * 60_000,
-      limit: 1000, // General IP safety; route-specific limiters apply
+      limit: 10000, // General IP safety; route-specific limiters apply
       standardHeaders: 'draft-8',
       legacyHeaders: false,
+      skip: () => process.env.NODE_ENV !== 'production',
+      handler: (_req, res) => {
+        const correlationId = (res.locals.correlationId as string) || crypto.randomUUID();
+        res.status(429).json(
+          createErrorEnvelope(
+            responseCode.RATE_LIMITED,
+            'Too many requests; retry later.',
+            correlationId
+          )
+        );
+      },
     })
   );
 

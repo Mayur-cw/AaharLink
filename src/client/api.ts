@@ -75,8 +75,8 @@ export async function api<T>(
     const json = (await res.json().catch(() => ({}))) as ApiResponseEnvelope<T>;
 
     if (!res.ok || json.ok === false || json.success === false) {
-      const code = json.error?.code || (res.status === 409 ? 'CONFLICT' : res.status === 401 ? 'UNAUTHORIZED' : res.status === 403 ? 'FORBIDDEN' : res.status === 404 ? 'NOT_FOUND' : 'REQUEST_FAILED');
-      const message = json.error?.message || `Request failed with status ${res.status}`;
+      const code = json.error?.code || (res.status === 409 ? 'CONFLICT' : res.status === 401 ? 'UNAUTHORIZED' : res.status === 403 ? 'FORBIDDEN' : res.status === 404 ? 'NOT_FOUND' : res.status === 429 ? 'RATE_LIMITED' : 'REQUEST_FAILED');
+      const message = json.error?.message || (res.status === 429 ? 'Too many requests. Please wait a moment and try again.' : `Request failed with status ${res.status}`);
       throw new ApiError(res.status, code, message, json.error?.details);
     }
 

@@ -126,48 +126,54 @@ export function requireCsrf(): RequestHandler {
 
 export const authRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  limit: process.env.NODE_ENV === 'production' ? 10 : 60, // 60 attempts in dev/demo mode
+  limit: process.env.NODE_ENV === 'production' ? 30 : 5000, // Generous in dev/demo mode
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  skip: () => process.env.NODE_ENV === 'test',
-  message: (_req: Request, res: Response) => {
+  skip: () => process.env.NODE_ENV !== 'production',
+  handler: (_req: Request, res: Response) => {
     const correlationId = (res.locals.correlationId as string) || crypto.randomUUID();
-    return createErrorEnvelope(
-      responseCode.RATE_LIMITED,
-      'Too many requests; retry later.',
-      correlationId
+    res.status(429).json(
+      createErrorEnvelope(
+        responseCode.RATE_LIMITED,
+        'Too many authentication attempts; please retry in a moment.',
+        correlationId
+      )
     );
   },
 });
 
 export const mutationRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 30, // 30 mutations per min per session/IP
+  limit: process.env.NODE_ENV === 'production' ? 60 : 10000, // 60 mutations per min in prod; skipped in dev
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  skip: () => process.env.NODE_ENV === 'test',
-  message: (_req: Request, res: Response) => {
+  skip: () => process.env.NODE_ENV !== 'production',
+  handler: (_req: Request, res: Response) => {
     const correlationId = (res.locals.correlationId as string) || crypto.randomUUID();
-    return createErrorEnvelope(
-      responseCode.RATE_LIMITED,
-      'Too many requests; retry later.',
-      correlationId
+    res.status(429).json(
+      createErrorEnvelope(
+        responseCode.RATE_LIMITED,
+        'Too many update requests; please slow down and retry in a moment.',
+        correlationId
+      )
     );
   },
 });
 
 export const readRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 120, // 120 reads per min per session/IP
+  limit: process.env.NODE_ENV === 'production' ? 600 : 20000, // 600 reads per min in prod; skipped in dev
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  skip: () => process.env.NODE_ENV === 'test',
-  message: (_req: Request, res: Response) => {
+  skip: () => process.env.NODE_ENV !== 'production',
+  handler: (_req: Request, res: Response) => {
     const correlationId = (res.locals.correlationId as string) || crypto.randomUUID();
-    return createErrorEnvelope(
-      responseCode.RATE_LIMITED,
-      'Too many requests; retry later.',
-      correlationId
+    res.status(429).json(
+      createErrorEnvelope(
+        responseCode.RATE_LIMITED,
+        'Too many read requests; please retry in a moment.',
+        correlationId
+      )
     );
   },
 });
