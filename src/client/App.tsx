@@ -1,10 +1,12 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext.js';
+import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { ToastProvider } from './context/ToastContext.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { Header } from './components/Header.js';
 import { Footer } from './components/Footer.js';
+import { Sidebar } from './components/Sidebar.js';
+import { TopBar } from './components/TopBar.js';
 import { RouteGuard } from './components/RouteGuard.js';
 import './tokens.css';
 
@@ -46,22 +48,10 @@ function PageLoadingFallback() {
   );
 }
 
-export default function App() {
+function AppRoutes() {
   return (
-    <BrowserRouter>
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
-
-      <AuthProvider>
-        <ToastProvider>
-          <ErrorBoundary>
-            <div className="app-container">
-              <Header />
-
-              <main id="main-content" className="app-main" tabIndex={-1}>
-                <Suspense fallback={<PageLoadingFallback />}>
-                  <Routes>
+    <Suspense fallback={<PageLoadingFallback />}>
+      <Routes>
                     {/* Public & Onboarding (P-001..P-003) */}
                     <Route path="/" element={<P001_Welcome />} />
                     <Route path="/login" element={<P002_SignIn />} />
@@ -251,16 +241,54 @@ export default function App() {
                       }
                     />
 
-                    {/* Access & Exception Guidance (P-025..P-026) */}
-                    <Route path="/forbidden" element={<P025_Forbidden />} />
-                    <Route path="/not-found" element={<P026_NotFound />} />
-                    <Route path="*" element={<Navigate to="/not-found" replace />} />
-                  </Routes>
-                </Suspense>
-              </main>
+        {/* Access & Exception Guidance (P-025..P-026) */}
+        <Route path="/forbidden" element={<P025_Forbidden />} />
+        <Route path="/not-found" element={<P026_NotFound />} />
+        <Route path="*" element={<Navigate to="/not-found" replace />} />
+      </Routes>
+    </Suspense>
+  );
+}
 
-              <Footer />
-            </div>
+function AppShell() {
+  const { isAuthenticated } = useAuth();
+
+  if (isAuthenticated) {
+    return (
+      <div className="app-dashboard-layout">
+        <Sidebar />
+        <div className="app-dashboard-main">
+          <TopBar />
+          <main id="main-content" className="app-main" tabIndex={-1} style={{ padding: '1.5rem 2rem' }}>
+            <AppRoutes />
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-container">
+      <Header />
+      <main id="main-content" className="app-main" tabIndex={-1}>
+        <AppRoutes />
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+
+      <AuthProvider>
+        <ToastProvider>
+          <ErrorBoundary>
+            <AppShell />
           </ErrorBoundary>
         </ToastProvider>
       </AuthProvider>

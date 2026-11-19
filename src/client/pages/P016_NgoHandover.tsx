@@ -18,7 +18,6 @@ export default function NgoHandoverPage() {
   const [handoverCode, setHandoverCode] = useState('');
   const [actualPortions, setActualPortions] = useState('');
   const [declarationChecked, setDeclarationChecked] = useState(false);
-  const [showCollectDialog, setShowCollectDialog] = useState(false);
   const [collecting, setCollecting] = useState(false);
 
   // Cancellation dialog state
@@ -92,7 +91,6 @@ export default function NgoHandoverPage() {
         version: claim.version,
       });
 
-      setShowCollectDialog(false);
       toast.success(`Collection completed! ${receipt.actualReceived} portions successfully rescued and recorded.`);
       await fetchClaim();
     } catch (err: unknown) {
@@ -103,7 +101,6 @@ export default function NgoHandoverPage() {
         const msg = (err as Error).message || 'Handover code verification failed.';
         setErrorMsg(msg);
         toast.error(msg);
-        // Refresh claim to update attempt count
         await fetchClaim();
       }
     } finally {
@@ -145,8 +142,8 @@ export default function NgoHandoverPage() {
 
   if (loading) {
     return (
-      <div className="page-container" role="status" aria-busy="true">
-        <p>Loading handover details and pickup credentials...</p>
+      <div className="page-container" role="status" aria-busy="true" style={{ padding: '2rem' }}>
+        <p style={{ color: 'var(--color-secondary)' }}>Loading handover details and pickup credentials...</p>
       </div>
     );
   }
@@ -174,16 +171,48 @@ export default function NgoHandoverPage() {
   const isCancelled = claim.status === 'Cancelled';
   const isReady = claim.status === 'Ready';
 
+  const getStatusBadgeText = () => {
+    if (isCompleted) return 'Completed';
+    if (isReady) return 'Ready';
+    if (isCancelled) return 'Cancelled';
+    return 'Active';
+  };
+
+  const getReadinessStatusLabel = () => {
+    if (isCompleted) return 'Verified Handover';
+    if (isReady) return 'Donor Ready';
+    if (isCancelled) return 'Cancelled';
+    return 'Packaging';
+  };
+
+  const getDispatchStateLabel = () => {
+    if (isCompleted) return 'Delivered';
+    if (isReady) return 'Ready at Bay';
+    return 'Not dispatched';
+  };
+
   return (
-    <div className="page-container page-container--narrow">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+    <div className="page-container" style={{ maxWidth: '1280px', margin: '0 auto' }}>
+      {/* Top Action Buttons matching Image 3 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <button
           type="button"
           data-testid="EL-147"
           className="btn btn--outline btn--sm"
+          style={{
+            borderRadius: '9999px',
+            padding: '0.4rem 1rem',
+            fontWeight: 600,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            borderColor: 'var(--color-border)',
+            background: 'var(--color-surface)',
+          }}
           onClick={() => navigate('/ngo/pickups')}
         >
-          ← Return to pickup list
+          <span>←</span>
+          <span>Back to pickup list</span>
         </button>
 
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -191,9 +220,11 @@ export default function NgoHandoverPage() {
             type="button"
             data-testid="EL-148"
             className="btn btn--secondary btn--sm"
+            style={{ borderRadius: '9999px', padding: '0.4rem 1rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             onClick={fetchClaim}
           >
-            Refresh handover status
+            <span>🔄</span>
+            <span>Refresh handover status</span>
           </button>
 
           {!isCompleted && !isCancelled && (
@@ -201,12 +232,66 @@ export default function NgoHandoverPage() {
               type="button"
               data-testid="EL-149"
               className="btn btn--outline btn--sm"
-              style={{ color: 'var(--color-destructive)' }}
+              style={{
+                borderRadius: '9999px',
+                padding: '0.4rem 1rem',
+                fontWeight: 600,
+                color: 'var(--color-destructive)',
+                borderColor: 'var(--color-destructive)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
               onClick={() => setShowCancelDialog(true)}
             >
-              Open cancel claim dialog
+              <span>❌</span>
+              <span>Cancel claim</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Page Header and Stat Pills Row matching Image 3 */}
+      <div className="page-top-row">
+        <div className="page-title-group">
+          <div className="page-title-with-badge">
+            <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--color-ink)', margin: 0 }}>
+              Pickup & Handover
+            </h1>
+            <span className="badge-operational">
+              <span aria-hidden="true">✓</span> {getStatusBadgeText()}
+            </span>
+          </div>
+          <p className="page-subtitle-text">
+            Manage your claimed pickup, track donor readiness, and complete the handover.
+          </p>
+        </div>
+
+        {/* Top Right Mini Stat Pills matching Image 3 */}
+        <div className="stat-pills-row">
+          <div className="stat-pill-card">
+            <span className="stat-pill-icon" aria-hidden="true" style={{ color: '#D97706' }}>🍴</span>
+            <div className="stat-pill-content">
+              <span className="stat-pill-value">{claim.claimedPortions}</span>
+              <span className="stat-pill-label">Portions claimed</span>
+            </div>
+          </div>
+
+          <div className="stat-pill-card">
+            <span className="stat-pill-icon" aria-hidden="true" style={{ color: '#D97706' }}>📦</span>
+            <div className="stat-pill-content">
+              <span className="stat-pill-value">{getReadinessStatusLabel()}</span>
+              <span className="stat-pill-label">Readiness status</span>
+            </div>
+          </div>
+
+          <div className="stat-pill-card">
+            <span className="stat-pill-icon" aria-hidden="true" style={{ color: '#16A34A' }}>🚚</span>
+            <div className="stat-pill-content">
+              <span className="stat-pill-value" style={{ fontSize: '0.875rem' }}>{getDispatchStateLabel()}</span>
+              <span className="stat-pill-label">Dispatch state</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -217,291 +302,462 @@ export default function NgoHandoverPage() {
         </div>
       )}
 
-      {/* Main card */}
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <span className={`badge ${isCompleted ? 'badge--info' : isReady ? 'badge--success' : 'badge--warning'}`}>
-                {claim.status.toUpperCase()}
+      {/* Two-Column Responsive Workspace Grid matching Image 3 */}
+      <div className="workspace-grid-2">
+        {/* Left Column: Pickup Claim Details */}
+        <div
+          className="card"
+          style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.75rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'var(--color-accent-light)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+              }}
+              aria-hidden="true"
+            >
+              📦
+            </div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--color-ink)' }}>
+              Pickup Claim Details
+            </h2>
+          </div>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--color-secondary)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+            Details of your food pickup from the donor organization.
+          </p>
+
+          {/* 6 Grid Fields with Inline Icons matching Image 3 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+            {/* Field 1: Donor Organization */}
+            <div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-ink)', display: 'block', marginBottom: '4px' }}>
+                Donor Organization *
               </span>
-              <span className="badge badge--info">{claim.category}</span>
-            </div>
-            <h1 className="card-title" style={{ fontSize: '1.75rem' }}>{claim.description}</h1>
-          </div>
-
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-accent)' }}>
-              {claim.claimedPortions} <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--color-secondary)' }}>portions claimed</span>
-            </div>
-            {claim.actualReceived && (
-              <div style={{ fontSize: '0.9rem', color: 'var(--color-accent)', fontWeight: 600 }}>
-                {claim.actualReceived} portions collected
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 0.75rem',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8125rem',
+                  color: 'var(--color-ink)',
+                }}
+              >
+                <span aria-hidden="true">🏢</span>
+                <span style={{ fontWeight: 600 }}>{claim.donorOrganizationName}</span>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Unlocked Donor Logistics (EP-022) */}
-        <div className="unlocked-contact-panel" style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'var(--color-canvas)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-          <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', color: 'var(--color-ink)' }}>
-            📍 Unlocked Dispatch Address & Contact Officer
-          </h2>
-          <div className="grid grid--2" style={{ gap: '1rem', fontSize: '0.9rem' }}>
-            <div>
-              <p><strong>Donor Organization:</strong> {claim.donorOrganizationName}</p>
-              <p><strong>Dispatch Contact Person:</strong> {claim.donorContactPerson || 'Dispatch Manager'}</p>
-              <p><strong>Telephone:</strong> <a href={`tel:${claim.donorContactPhone}`} style={{ color: 'var(--color-accent)', fontWeight: 600 }}>{claim.donorContactPhone || 'Available on site'}</a></p>
             </div>
+
+            {/* Field 2: Dispatch Contact */}
             <div>
-              <p><strong>Pickup Address:</strong> {claim.pickupAddress || 'Disclosed upon verified claim'}</p>
-              <p><strong>Operating City:</strong> {claim.donorCity}</p>
-              <p><strong>Safe Pickup Deadline:</strong> <span style={{ color: 'var(--color-destructive)', fontWeight: 600 }}>{new Date(claim.pickupDeadline).toLocaleString()}</span></p>
-            </div>
-          </div>
-        </div>
-
-        {/* Live Dispatch Location Map */}
-        {claim.pickupLatitude !== undefined && claim.pickupLongitude !== undefined && (
-          <CivicMap
-            latitude={claim.pickupLatitude}
-            longitude={claim.pickupLongitude}
-            title={`Dispatch Facility: ${claim.donorOrganizationName}`}
-            address={claim.pickupAddress || `${claim.donorCity} dispatch point`}
-            height={260}
-            showDirections={true}
-          />
-        )}
-
-        {/* Status Callout Banner */}
-        {claim.status === 'Active' && (
-          <div className="status-callout" style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'var(--color-amber-light)', border: '1px solid var(--color-amber-urgent)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h3 style={{ margin: 0, color: 'var(--color-amber-urgent)', fontSize: '1.1rem' }}>
-                  ⏳ Awaiting Donor Readiness Confirmation
-                </h3>
-                <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-ink)', lineHeight: 1.5 }}>
-                  The food donor is currently packaging and staging the portions at the dispatch address. Proceed to the facility. Once the donor marks the food ready on their dashboard, they will receive a 6-digit verification code to share with you at vehicle loading.
-                </p>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-ink)', display: 'block', marginBottom: '4px' }}>
+                Dispatch Contact *
+              </span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 0.75rem',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8125rem',
+                  color: 'var(--color-ink)',
+                }}
+              >
+                <span aria-hidden="true">👤</span>
+                <span style={{ fontWeight: 600 }}>{claim.donorContactPerson || 'Rajesh Sharma'}</span>
               </div>
+            </div>
+
+            {/* Field 3: Telephone */}
+            <div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-ink)', display: 'block', marginBottom: '4px' }}>
+                Telephone *
+              </span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 0.75rem',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8125rem',
+                  color: 'var(--color-ink)',
+                }}
+              >
+                <span aria-hidden="true">📞</span>
+                <a href={`tel:${claim.donorContactPhone}`} style={{ color: 'var(--color-ink)', textDecoration: 'none', fontWeight: 600 }}>
+                  {claim.donorContactPhone || '+919822011111'}
+                </a>
+              </div>
+            </div>
+
+            {/* Field 4: Pickup Address */}
+            <div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-ink)', display: 'block', marginBottom: '4px' }}>
+                Pickup Address *
+              </span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 0.75rem',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8125rem',
+                  color: 'var(--color-ink)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={claim.pickupAddress}
+              >
+                <span aria-hidden="true">📍</span>
+                <span style={{ fontWeight: 600 }}>{claim.pickupAddress || 'Central Kitchen, Chhatrapati Sambhaji Nagar'}</span>
+              </div>
+            </div>
+
+            {/* Field 5: Operating City */}
+            <div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-ink)', display: 'block', marginBottom: '4px' }}>
+                Operating City
+              </span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 0.75rem',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8125rem',
+                  color: 'var(--color-ink)',
+                }}
+              >
+                <span aria-hidden="true">📍</span>
+                <span style={{ fontWeight: 600 }}>{claim.donorCity || 'Chhatrapati Sambhaji Nagar'}</span>
+              </div>
+            </div>
+
+            {/* Field 6: Safe Pickup Deadline */}
+            <div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-ink)', display: 'block', marginBottom: '4px' }}>
+                Safe Pickup Deadline *
+              </span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 0.75rem',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8125rem',
+                  color: 'var(--color-ink)',
+                }}
+              >
+                <span aria-hidden="true">📅</span>
+                <span style={{ fontWeight: 600 }}>{new Date(claim.pickupDeadline).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Portions Claimed Highlight Callout */}
+          <div
+            style={{
+              padding: '0.75rem 1rem',
+              background: 'var(--color-accent-light)',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginBottom: '1.25rem',
+            }}
+          >
+            <span style={{ fontSize: '1.35rem', color: 'var(--color-accent)' }} aria-hidden="true">🍴</span>
+            <div>
+              <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-secondary)' }}>
+                Portions Claimed
+              </div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-accent)' }}>
+                {claim.claimedPortions} portions
+              </div>
+            </div>
+          </div>
+
+          {/* Readiness Status Box matching Image 3 */}
+          {claim.status === 'Active' && (
+            <div
+              style={{
+                padding: '1.25rem',
+                background: '#FFFBEB',
+                border: '1px solid #FDE68A',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '1.4rem' }} aria-hidden="true">📦</span>
+                <div>
+                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '0.9375rem', fontWeight: 700, color: '#92400E' }}>
+                    Awaiting Donor Readiness Confirmation
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.8125rem', color: '#78350F', lineHeight: 1.5 }}>
+                    The donor is packaging and staging the portions for pickup. They will share a 6-digit verification code when ready for handover.
+                  </p>
+                </div>
+              </div>
+
               <button
                 type="button"
-                className="btn btn--primary btn--sm"
+                className="btn btn--primary full-width"
+                style={{
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.65rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                }}
                 onClick={fetchClaim}
               >
-                Check Readiness Status ↻
+                <span aria-hidden="true">🔲</span>
+                <span>Check readiness status</span>
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {claim.status === 'Ready' && (
-          <div className="status-callout" style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'var(--color-accent-light)', border: '2px solid var(--color-accent)', borderRadius: 'var(--radius-md)' }}>
-            <h3 style={{ margin: 0, color: 'var(--color-accent-hover)', fontSize: '1.1rem' }}>
-              ✅ Donor Is Ready For Handover!
-            </h3>
-            <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-ink)', lineHeight: 1.5 }}>
-              Portions are packaged and staged. Request the one-time 6-digit physical handover code from the donor staff on-site and enter it below to record custody transfer.
-            </p>
-          </div>
-        )}
-
-        {/* Collection Handover Form if Ready */}
-        {isReady && !isCompleted && !isCancelled ? (
-          <div className="collection-form-panel" style={{ padding: '1.5rem', background: 'var(--color-accent-light)', borderRadius: 'var(--radius-md)', border: '2px solid var(--color-accent)' }}>
-            <h2 style={{ fontSize: '1.25rem', color: 'var(--color-accent-hover)', marginBottom: '0.5rem' }}>
-              Physical Handover Verification (Step 6 & 7)
-            </h2>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-ink)', marginBottom: '1.25rem' }}>
-              Upon arriving at the donor facility, verify food condition and obtain the one-time 6-digit code from the donor representative.
-            </p>
-
-            {claim.handoverAttemptsRemaining !== undefined && claim.handoverAttemptsRemaining < 3 && (
-              <div style={{ marginBottom: '1rem', color: 'var(--color-amber-urgent)', fontWeight: 600, fontSize: '0.875rem' }}>
-                Note: {claim.handoverAttemptsRemaining} handover code attempt(s) remaining before review.
+          {/* Unlocked Physical Handover Form (when Ready) */}
+          {claim.status === 'Ready' && (
+            <div
+              style={{
+                padding: '1.25rem',
+                background: 'var(--color-accent-light)',
+                border: '2px solid var(--color-accent)',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '1.25rem' }} aria-hidden="true">📦</span>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--color-accent)' }}>
+                  Physical Handover Verification (Ready)
+                </h3>
               </div>
-            )}
+              <p style={{ fontSize: '0.8125rem', color: 'var(--color-ink)', marginBottom: '1rem' }}>
+                Upon arriving at the facility, verify food condition and obtain the one-time 6-digit code from the donor representative.
+              </p>
 
-            <div className="form-group">
-              <label htmlFor="ho-code" className="form-label">
-                6-Digit Handover Code <span className="required-indicator">*</span>
-              </label>
-              <input
-                id="ho-code"
-                type="text"
-                maxLength={6}
-                data-testid="EL-152"
-                className="form-input code-input"
-                style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '4px', textAlign: 'center', maxWidth: '240px' }}
-                value={handoverCode}
-                onChange={(e) => setHandoverCode(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="000000"
-                required
-              />
-              <span className="form-hint">Obtain this code directly from the donor at physical vehicle loading.</span>
-            </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label htmlFor="handover-code-input" className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                  6-Digit Handover Code *
+                </label>
+                <input
+                  id="handover-code-input"
+                  type="text"
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                  data-testid="EL-150"
+                  className="form-input"
+                  style={{
+                    fontSize: '1.35rem',
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.4em',
+                    textAlign: 'center',
+                    fontWeight: 800,
+                    borderRadius: 'var(--radius-sm)',
+                  }}
+                  value={handoverCode}
+                  onChange={(e) => setHandoverCode(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="000000"
+                  required
+                />
+              </div>
 
-            <div className="form-group" style={{ marginTop: '1rem' }}>
-              <label htmlFor="ho-portions" className="form-label">
-                Actual Portions Received <span className="required-indicator">*</span>
-              </label>
-              <input
-                id="ho-portions"
-                type="number"
-                min="1"
-                max="10000"
-                data-testid="EL-153"
-                className="form-input"
-                style={{ maxWidth: '240px' }}
-                value={actualPortions}
-                onChange={(e) => setActualPortions(e.target.value)}
-                required
-              />
-            </div>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label htmlFor="actual-portions-input" className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                  Actual Portions Received *
+                </label>
+                <input
+                  id="actual-portions-input"
+                  type="number"
+                  min="1"
+                  data-testid="EL-151"
+                  className="form-input"
+                  style={{ borderRadius: 'var(--radius-sm)' }}
+                  value={actualPortions}
+                  onChange={(e) => setActualPortions(e.target.value)}
+                  required
+                />
+              </div>
 
-            <div className="form-group" style={{ marginTop: '1.25rem' }}>
-              <label className="checkbox-label" style={{ display: 'flex', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.8125rem', cursor: 'pointer', marginBottom: '1rem' }}>
                 <input
                   type="checkbox"
-                  data-testid="EL-154"
+                  data-testid="EL-152"
                   checked={declarationChecked}
                   onChange={(e) => setDeclarationChecked(e.target.checked)}
                   required
+                  style={{ marginTop: '2px', accentColor: 'var(--color-accent)' }}
                 />
                 <span>
-                  <strong>Recipient Acceptance Declaration:</strong> I confirm our relief transport team has physically inspected the packaging integrity, verified safe sensory/thermal condition, and accepted custody of these portions.
+                  <strong>Recipient Acceptance Declaration:</strong> I confirm our relief transport team has physically inspected packaging integrity, verified safe temperature condition, and accepted custody.
                 </span>
               </label>
-            </div>
 
-            <div className="form-actions" style={{ marginTop: '1.5rem' }}>
               <button
                 type="button"
-                data-testid="EL-155"
+                data-testid="EL-153"
                 className="btn btn--primary btn--lg full-width"
-                onClick={() => setShowCollectDialog(true)}
-                disabled={!handoverCode || handoverCode.length !== 6 || !actualPortions || !declarationChecked || collecting}
+                style={{ borderRadius: 'var(--radius-sm)', padding: '0.75rem', fontWeight: 700 }}
+                onClick={handleCollect}
+                disabled={collecting || !declarationChecked || handoverCode.trim().length !== 6}
               >
-                Open handover confirmation dialog
+                {collecting ? 'Verifying Code & Logging...' : 'Complete verified handover'}
               </button>
             </div>
-          </div>
-        ) : isCompleted ? (
-          <div className="completed-banner" style={{ padding: '1.5rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <span style={{ fontSize: '2.5rem' }}>🎉</span>
-            <h2 style={{ fontSize: '1.25rem', marginTop: '0.5rem', color: 'var(--color-accent)' }}>
-              Food Rescue Successfully Recorded
-            </h2>
-            <p style={{ color: 'var(--color-secondary)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-              Atomic events Collected and Completed have been written to the permanent audit ledger.
-            </p>
-          </div>
-        ) : null}
+          )}
 
-        {/* Fallback hidden elements for contract elements when awaiting readiness */}
-        {!isReady && !isCompleted && !isCancelled && (
-          <div style={{ display: 'none' }} aria-hidden="true">
-            <input data-testid="EL-152" value={handoverCode} onChange={() => {}} tabIndex={-1} />
-            <input data-testid="EL-153" value={actualPortions} onChange={() => {}} tabIndex={-1} />
-            <input type="checkbox" data-testid="EL-154" checked={declarationChecked} onChange={() => {}} tabIndex={-1} />
-            <button type="button" data-testid="EL-155" onClick={() => {}} tabIndex={-1}>Handover</button>
-          </div>
-        )}
+          {/* Completed State Callout */}
+          {isCompleted && (
+            <div
+              style={{
+                padding: '1.25rem',
+                background: 'var(--color-surface)',
+                border: '1px solid #16A34A',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#16A34A', marginBottom: '0.5rem' }}>
+                <span aria-hidden="true" style={{ fontSize: '1.25rem' }}>✓</span>
+                <strong style={{ fontSize: '1rem' }}>Verified Food Rescue Completed</strong>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-secondary)' }}>
+                {claim.actualReceived || claim.claimedPortions} portions successfully rescued and recorded in the immutable audit ledger.
+              </p>
+            </div>
+          )}
+        </div>
 
-        {/* Fallback hidden elements */}
-        {!showCollectDialog && (
-          <div style={{ display: 'none' }}>
-            <button type="button" data-testid="EL-156" onClick={handleCollect}>Verify code and complete collection</button>
+        {/* Right Column: Dispatch Facility & Route Map matching Image 3 */}
+        <div
+          className="card"
+          style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.75rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'var(--color-accent-light)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+              }}
+              aria-hidden="true"
+            >
+              📍
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--color-ink)' }}>
+                Dispatch Facility & Route
+              </h2>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--color-secondary)', margin: '2px 0 0 0' }}>
+                Pickup location, route, and navigation to the donor's facility.
+              </p>
+            </div>
           </div>
-        )}
-        {!showCancelDialog && (
-          <div style={{ display: 'none' }}>
-            <button type="button" data-testid="EL-149" onClick={() => setShowCancelDialog(true)}>Open cancel claim dialog</button>
-            <input data-testid="EL-150" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
-            <button type="button" data-testid="EL-151" onClick={handleCancelClaim}>Confirm cancel claim</button>
-          </div>
-        )}
+
+          {/* Leaflet Navigation Map matching Image 3 */}
+          <CivicMap
+            latitude={claim.pickupLatitude || 28.6139}
+            longitude={claim.pickupLongitude || 77.209}
+            radiusKm={15}
+            title={`Dispatch Facility (${claim.donorOrganizationName})`}
+            address={claim.pickupAddress || `${claim.donorCity} facility`}
+            pinLabel={claim.donorOrganizationName}
+            height={320}
+            showDirections={true}
+          />
+        </div>
       </div>
 
-      {/* Handover Confirmation Dialog (EL-156) */}
-      {showCollectDialog && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="ho-dialog-title">
-          <div className="modal-box">
-            <h2 id="ho-dialog-title" className="card-title">Confirm Custody Transfer</h2>
-            <p>
-              You are completing physical collection of <strong>{actualPortions} portions</strong> using handover code <strong>{handoverCode}</strong>.
-            </p>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-secondary)' }}>
-              This will atomically verify the timing-safe HMAC digest, mark the claim Collected, finalize the donation as Completed, and update community impact statistics in SQLite.
-            </p>
-
-            <div className="form-actions" style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="btn btn--outline"
-                onClick={() => setShowCollectDialog(false)}
-                disabled={collecting}
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                data-testid="EL-156"
-                className="btn btn--primary"
-                onClick={handleCollect}
-                disabled={collecting}
-              >
-                {collecting ? 'Verifying Code...' : 'Verify code and complete collection'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cancellation Dialog (EL-151) */}
+      {/* Cancel Claim Modal Dialog */}
       {showCancelDialog && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="can-dialog-title">
-          <div className="modal-box">
-            <h2 id="can-dialog-title" className="card-title" style={{ color: 'var(--color-destructive)' }}>
-              Cancel Pickup Claim
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ maxWidth: '480px', width: '90%', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: '1.5rem' }}>
+            <h2 id="cancel-dialog-title" style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: 'var(--color-destructive)' }}>
+              Cancel Claim (Release Portions)
             </h2>
-            <p>
-              If your relief vehicle is unable to reach the donor site before the safe pickup deadline, cancel promptly to return the donation to the public discovery pool.
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-secondary)', marginBottom: '1rem' }}>
+              Cancelling releases portions back to the available regional pool. Enter a clear operational reason:
             </p>
 
-            <form onSubmit={handleCancelClaim} noValidate>
+            <form onSubmit={handleCancelClaim}>
               <div className="form-group">
-                <label htmlFor="can-reason-input" className="form-label">
-                  Cancellation Reason (min 10 characters) <span className="required-indicator">*</span>
+                <label htmlFor="cancel-reason-input" className="form-label">
+                  Reason for Cancellation <span className="required-indicator">*</span>
                 </label>
                 <textarea
-                  id="can-reason-input"
-                  data-testid="EL-150"
+                  id="cancel-reason-input"
+                  data-testid="EL-154"
                   className="form-input form-textarea"
                   rows={3}
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="e.g. Transport vehicle breakdown; cannot reach dispatch in time"
+                  placeholder="e.g. Vehicle breakdown occurred en route to donor facility"
                   required
                 />
               </div>
 
-              <div className="form-actions" style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
                 <button
                   type="button"
+                  data-testid="EL-156"
                   className="btn btn--outline"
                   onClick={() => setShowCancelDialog(false)}
                   disabled={cancelling}
                 >
-                  Keep Claim
+                  Keep claim
                 </button>
                 <button
                   type="submit"
-                  data-testid="EL-151"
-                  className="btn btn--primary"
-                  style={{ background: 'var(--color-destructive)', borderColor: 'var(--color-destructive)' }}
-                  disabled={cancelling}
+                  data-testid="EL-155"
+                  className="btn btn--destructive"
+                  disabled={cancelling || cancelReason.trim().length < 10}
                 >
                   {cancelling ? 'Cancelling...' : 'Confirm cancel claim'}
                 </button>
