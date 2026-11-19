@@ -511,6 +511,30 @@ export const donationFilterSchema = z
   })
   .strict();
 
+export const ngoDiscoverQuerySchema = z
+  .object({
+    category: donationCategorySchema.optional(),
+    minPortions: z.coerce.number().int().min(1).max(10000).optional(),
+    maxKm: z.coerce.number().min(1).max(200).optional(),
+    before: z.string().datetime().optional(),
+    sort: z.enum(['recommended', 'urgency', 'distance']).default('recommended'),
+    includeExpired: z.coerce.boolean().optional(),
+    cursor: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+export type NgoDiscoverQuery = z.infer<typeof ngoDiscoverQuerySchema>;
+
+export const ngoClaimsQuerySchema = z
+  .object({
+    status: claimStatusSchema.optional(),
+    cursor: z.string().optional(),
+    sort: z.enum(['newest', 'deadline']).default('newest'),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+export type NgoClaimsQuery = z.infer<typeof ngoClaimsQuerySchema>;
+
 export const auditFilterSchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(50).default(20),

@@ -16,6 +16,7 @@ import type {
   AuditEventType,
   HandlingDeclarations,
   OperationalAnalytics,
+  DonationPublicPreview,
 } from '../shared/contracts.js';
 import {
   calculateHaversineDistanceKm,
@@ -318,7 +319,11 @@ export class SqliteRepository {
       this.db.exec('COMMIT;');
       return result;
     } catch (err) {
-      this.db.exec('ROLLBACK;');
+      try {
+        this.db.exec('ROLLBACK;');
+      } catch {
+        // Ignore rollback failure if transaction is no longer active
+      }
       throw err;
     }
   }
@@ -684,9 +689,13 @@ export class SqliteRepository {
     maxDistanceKm?: number,
     category?: DonationCategory,
     limit: number = 20,
-    cursor?: string
+    cursor?: string,
+    minPortions?: number,
+    before?: string,
+    sort: 'recommended' | 'urgency' | 'distance' = 'recommended',
+    includeExpired: boolean = false
   ): {
-    items: Array<DonationRecord & { straightLineDistanceKm: number; donorOrgName: string; approximateCity: string; eligibleForMyCapacity: boolean; ineligibleReason?: string }>;
+    items: DonationPublicPreview[];
     nextCursor: string | null;
   } {
     const now = new Date().toISOString();
@@ -694,13 +703,27 @@ export class SqliteRepository {
       SELECT d.*, o.name as donor_org_name, o.city as donor_city, o.latitude as donor_lat, o.longitude as donor_lon
       FROM donations d
       JOIN organizations o ON d.donor_organization_id = o.id
-      WHERE d.status = 'Available' AND d.pickup_deadline > ?
     `;
-    const params: SqlParam[] = [now];
+    const params: SqlParam[] = [];
+
+    if (includeExpired) {
+      sql += " WHERE (d.status = 'Available' OR d.status = 'Expired')";
+    } else {
+      sql += " WHERE d.status = 'Available' AND d.pickup_deadline > ?";
+      params.push(now);
+    }
 
     if (category) {
       sql += ' AND d.category = ?';
       params.push(category);
+    }
+    if (minPortions) {
+      sql += ' AND d.offered_portions >= ?';
+      params.push(minPortions);
+    }
+    if (before) {
+      sql += ' AND d.pickup_deadline <= ?';
+      params.push(before);
     }
     if (cursor) {
       sql += ' AND d.id > ?';
@@ -712,7 +735,7 @@ export class SqliteRepository {
     const capacity = this.getNgoCapacity(ngoOrg.id);
     const radiusLimit = maxDistanceKm ?? ngoOrg.operatingRadiusKm;
 
-    const mapped = rows
+    const mapped: DonationPublicPreview[] = rows
       .map((r) => {
         const donation = this.mapDonation(r);
         const dist = calculateHaversineDistanceKm(ngoOrg.latitude, ngoOrg.longitude, Number(r.donor_lat), Number(r.donor_lon));
@@ -720,7 +743,10 @@ export class SqliteRepository {
         let eligible = true;
         let ineligibleReason: string | undefined;
 
-        if (dist > radiusLimit) {
+        if (donation.status === 'Expired' || donation.pickupDeadline <= now) {
+          eligible = false;
+          ineligibleReason = 'This donation has expired and can no longer be claimed.';
+        } else if (dist > radiusLimit) {
           eligible = false;
           ineligibleReason = `Distance (${dist} km) exceeds radius (${radiusLimit} km).`;
         } else if (donation.offeredPortions > capacity.availableRemainingPortions) {
@@ -729,16 +755,30 @@ export class SqliteRepository {
         }
 
         return {
-          ...donation,
+          id: donation.id,
+          category: donation.category,
+          description: donation.description,
+          offeredPortions: donation.offeredPortions,
+          preparedAt: donation.preparedAt,
+          pickupDeadline: donation.pickupDeadline,
+          approximateCity: r.donor_city || 'Local area',
           straightLineDistanceKm: dist,
-          donorOrgName: r.donor_org_name,
-          approximateCity: r.donor_city,
+          status: (donation.status === 'Available' && donation.pickupDeadline <= now) ? 'Expired' : donation.status,
+          donorOrganizationName: r.donor_org_name || 'Verified Donor',
           eligibleForMyCapacity: eligible,
           ineligibleReason,
+          version: donation.version,
+          createdAt: donation.createdAt,
         };
       })
       .filter((d) => d.straightLineDistanceKm <= radiusLimit)
       .sort((a, b) => {
+        if (sort === 'urgency') {
+          return new Date(a.pickupDeadline).getTime() - new Date(b.pickupDeadline).getTime();
+        }
+        if (sort === 'distance') {
+          return a.straightLineDistanceKm - b.straightLineDistanceKm;
+        }
         // Priority ranking: 45% urgency (deadline ASC), 35% inverse distance (distance ASC), 20% capacity fit
         const timeA = new Date(a.pickupDeadline).getTime();
         const timeB = new Date(b.pickupDeadline).getTime();
@@ -951,7 +991,13 @@ export class SqliteRepository {
     return this.mapClaim(row);
   }
 
-  listClaimsForNgo(ngoOrgId: string, limit: number = 20, cursor?: string): {
+  listClaimsForNgo(
+    ngoOrgId: string,
+    limit: number = 20,
+    cursor?: string,
+    status?: ClaimStatus,
+    sort: 'newest' | 'deadline' = 'newest'
+  ): {
     items: Array<ClaimRecord & { donation: DonationRecord; donorOrgName: string; donorCity: string }>;
     nextCursor: string | null;
   } {
@@ -964,11 +1010,19 @@ export class SqliteRepository {
     `;
     const params: SqlParam[] = [ngoOrgId];
 
+    if (status) {
+      sql += ' AND c.status = ?';
+      params.push(status);
+    }
     if (cursor) {
       sql += ' AND c.id > ?';
       params.push(cursor);
     }
-    sql += ' ORDER BY c.claimed_at DESC LIMIT ?';
+    if (sort === 'deadline') {
+      sql += ' ORDER BY d.pickup_deadline ASC LIMIT ?';
+    } else {
+      sql += ' ORDER BY c.claimed_at DESC LIMIT ?';
+    }
     params.push(limit + 1);
 
     const rows = this.db.prepare(sql).all(...params) as Array<Record<string, unknown> & { donor_name: string; donor_city: string }>;
@@ -1117,6 +1171,7 @@ export class SqliteRepository {
       if (!isValid) {
         const newAttempts = claim.handoverAttempts + 1;
         db.prepare('UPDATE claims SET handover_attempts = ? WHERE id = ?').run(newAttempts, claimId);
+        db.exec('COMMIT');
         throw new Error('INVALID_INPUT: That code is incorrect or expired.');
       }
 
@@ -1304,10 +1359,16 @@ export class SqliteRepository {
       // Update claim to Cancelled
       db.prepare(`UPDATE claims SET status = 'Cancelled', version = ? WHERE id = ?`).run(newVersion, claimId);
 
-      // Restore donation to Available
+      // Check donation deadline before restoring to Available
+      const donRow = db.prepare('SELECT * FROM donations WHERE id = ?').get(claim.donationId) as Record<string, unknown>;
+      const donation = this.mapDonation(donRow);
+      const isPastDeadline = donation.pickupDeadline <= now;
+      const nextDonationStatus = isPastDeadline ? 'Expired' : 'Available';
+
+      // Restore donation to Available (or Expired if deadline passed)
       db.prepare(`
-        UPDATE donations SET status = 'Available', version = version + 1, updated_at = ? WHERE id = ?
-      `).run(now, claim.donationId);
+        UPDATE donations SET status = ?, version = version + 1, updated_at = ? WHERE id = ?
+      `).run(nextDonationStatus, now, claim.donationId);
 
       this.insertAuditEventInternal(db, {
         correlationId,
@@ -1322,15 +1383,15 @@ export class SqliteRepository {
         metadataRedacted: null,
       });
 
-      // Notify donor that listing is available again
-      const donRow = db.prepare('SELECT * FROM donations WHERE id = ?').get(claim.donationId) as Record<string, unknown>;
-      const donation = this.mapDonation(donRow);
+      // Notify donor that listing was cancelled
       const donorOrg = this.getOrgById(donation.donorOrganizationId);
       if (donorOrg) {
         this.createNotificationInternal(db, {
           userId: donorOrg.ownerUserId,
           kind: 'cancelled',
-          message: `NGO cancelled claim; your donation is available again for rescue.`,
+          message: isPastDeadline
+            ? 'NGO cancelled claim; pickup deadline has passed so the donation has expired.'
+            : 'NGO cancelled claim; your donation is available again for rescue.',
           objectType: 'donation',
           objectId: donation.id,
         });

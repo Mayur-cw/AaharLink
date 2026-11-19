@@ -11,6 +11,7 @@ import { authRouter } from './routes/auth.js';
 import { accountRouter } from './routes/account.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { donorRouter } from './routes/donor.js';
+import { ngoRouter } from './routes/ngo.js';
 
 export function createApp() {
   const config = getConfig();
@@ -67,6 +68,7 @@ export function createApp() {
   app.use('/api/account', accountRouter);
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/donor', donorRouter);
+  app.use('/api/ngo', ngoRouter);
 
   // Client static assets
   const dirname = path.dirname(fileURLToPath(import.meta.url));
