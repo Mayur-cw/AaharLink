@@ -32,6 +32,7 @@ const P018_CoordinatorDashboard = lazy(() => import('./pages/P018_CoordinatorDas
 const P019_CoordinatorOrgs = lazy(() => import('./pages/P019_CoordinatorOrgs.js'));
 const P020_CoordinatorOrgReview = lazy(() => import('./pages/P020_CoordinatorOrgReview.js'));
 const P021_CoordinatorDonations = lazy(() => import('./pages/P021_CoordinatorDonations.js'));
+const P021_CoordinatorExceptions = lazy(() => import('./pages/P021_CoordinatorExceptions.js'));
 const P022_CoordinatorDonationInvestigate = lazy(() => import('./pages/P022_CoordinatorDonationInvestigate.js'));
 const P023_CoordinatorAnalytics = lazy(() => import('./pages/P023_CoordinatorAnalytics.js'));
 const P024_CoordinatorAudit = lazy(() => import('./pages/P024_CoordinatorAudit.js'));
@@ -225,7 +226,23 @@ function AppRoutes() {
                       }
                     />
                     <Route
+                      path="/coordinator/exceptions"
+                      element={
+                        <RouteGuard allowedRoles={['coordinator']}>
+                          <P021_CoordinatorExceptions />
+                        </RouteGuard>
+                      }
+                    />
+                    <Route
                       path="/coordinator/donations/:id"
+                      element={
+                        <RouteGuard allowedRoles={['coordinator']}>
+                          <P022_CoordinatorDonationInvestigate />
+                        </RouteGuard>
+                      }
+                    />
+                    <Route
+                      path="/coordinator/exceptions/:id"
                       element={
                         <RouteGuard allowedRoles={['coordinator']}>
                           <P022_CoordinatorDonationInvestigate />

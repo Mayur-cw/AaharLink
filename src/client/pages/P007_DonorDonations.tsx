@@ -304,7 +304,11 @@ export default function DonorDonationsPage() {
                           {d.status.toUpperCase()}
                         </span>
                       </td>
-                      <td><strong>{d.category}</strong></td>
+                      <td>
+                        <span className="badge badge--info" style={{ textTransform: 'capitalize', fontWeight: 600 }}>
+                          {d.category || 'Cooked Meals'}
+                        </span>
+                      </td>
                       <td>{d.description}</td>
                       <td>{d.offeredPortions}</td>
                       <td>{new Date(d.pickupDeadline).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>

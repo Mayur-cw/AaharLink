@@ -187,13 +187,13 @@ export default function CoordinatorDashboardPage() {
         {/* Stat 3: Urgent Exceptions */}
         <div
           className="coordinator-stat-card"
-          onClick={() => navigate('/coordinator/donations?status=Disputed')}
+          onClick={() => navigate('/coordinator/exceptions')}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              navigate('/coordinator/donations?status=Disputed');
+              navigate('/coordinator/exceptions');
             }
           }}
           aria-label="Urgent Exceptions"
@@ -295,7 +295,7 @@ export default function CoordinatorDashboardPage() {
           <button
             type="button"
             className="coordinator-action-btn"
-            onClick={() => navigate('/coordinator/donations?status=Disputed')}
+            onClick={() => navigate('/coordinator/exceptions')}
           >
             <span>Open Exception Center</span>
             <span aria-hidden="true">→</span>

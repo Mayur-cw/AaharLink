@@ -33,7 +33,8 @@ export function TopBar() {
     if (p.includes('/handover') || (p.includes('/pickups/') && p.split('/').length > 3)) return 'Pickup & Handover';
     if (p.includes('/discover')) return 'Discover Food';
     if (p.includes('/pickups')) return 'My Pickups';
-    if (p.includes('/donations')) return 'Manage Donations';
+    if (p.includes('/exceptions')) return 'Exception Center';
+    if (p.includes('/donations')) return role === 'coordinator' ? 'Donations Registry' : 'Manage Donations';
     if (p.includes('/history')) return 'History';
     if (p.includes('/organizations')) return 'Organizations';
     if (p.includes('/analytics')) return 'Analytics';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
 import type { Paginated } from '../../shared/contracts.js';
@@ -21,6 +21,7 @@ interface CoordinatorDonationItem {
 
 export default function CoordinatorDonationsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -32,9 +33,10 @@ export default function CoordinatorDonationsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState('');
+  const initialStatus = searchParams.get('status') || '';
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [urgentOnly, setUrgentOnly] = useState(false);
-  const [disputeOnly, setDisputeOnly] = useState(false);
+  const [disputeOnly, setDisputeOnly] = useState(initialStatus === 'Disputed');
   const [searchQuery, setSearchQuery] = useState('');
   const [deadlineSort, setDeadlineSort] = useState<'asc' | 'desc'>('asc');
   const [sortAsc, setSortAsc] = useState(false);
@@ -155,10 +157,15 @@ export default function CoordinatorDonationsPage() {
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 className="card-title">All Donations and Urgent Claims</h1>
-            <p className="card-description">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
+              <span aria-hidden="true" style={{ fontSize: '1.35rem' }}>🍱</span>
+              <h1 className="card-title" style={{ margin: 0, fontSize: '1.625rem', fontWeight: 800 }}>
+                Surplus Food Donations Registry
+              </h1>
+            </div>
+            <p className="card-description" style={{ margin: 0 }}>
               Platform-wide visibility into food rescue lifecycles, active claims, expired batches, and delivery exceptions.
             </p>
           </div>
@@ -166,10 +173,106 @@ export default function CoordinatorDonationsPage() {
             type="button"
             data-testid="EL-188"
             className="btn btn--primary"
+            style={{ borderRadius: 'var(--radius-sm)', padding: '0.6rem 1.25rem', fontWeight: 700 }}
             onClick={handleInspect}
             disabled={!selectedId}
           >
             Inspect donation exception
+          </button>
+        </div>
+
+        {/* Quick Cross-Link to Exception Remediation Center */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.75rem 1rem',
+            background: 'rgba(254, 243, 199, 0.4)',
+            border: '1px solid #FDE68A',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: '1.25rem',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#92400E' }}>
+            <span aria-hidden="true">🚨</span>
+            <span>
+              <strong>Looking for active incidents?</strong> Triage delivery disputes, stalled handovers, and urgent expiry interventions.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            style={{ borderRadius: '9999px', fontSize: '0.8125rem', fontWeight: 600, color: '#92400E', borderColor: '#F59E0B' }}
+            onClick={() => navigate('/coordinator/exceptions')}
+          >
+            Open Exception Center →
+          </button>
+        </div>
+
+        {/* Quick Filter Tabs */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn btn--sm ${!statusFilter ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => {
+              setStatusFilter('');
+              setUrgentOnly(false);
+              setDisputeOnly(false);
+            }}
+          >
+            🍱 All Donations
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${statusFilter === 'Available' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => {
+              setStatusFilter('Available');
+              setUrgentOnly(false);
+              setDisputeOnly(false);
+            }}
+          >
+            🟢 Available
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${statusFilter === 'Claimed' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => {
+              setStatusFilter('Claimed');
+              setUrgentOnly(false);
+              setDisputeOnly(false);
+            }}
+          >
+            🚚 In Transit (Claimed)
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${statusFilter === 'Completed' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => {
+              setStatusFilter('Completed');
+              setUrgentOnly(false);
+              setDisputeOnly(false);
+            }}
+          >
+            ✅ Delivered & Verified
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${statusFilter === 'Expired' || statusFilter === 'Cancelled' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => {
+              setStatusFilter('Expired');
+              setUrgentOnly(false);
+              setDisputeOnly(false);
+            }}
+          >
+            📁 Expired / Archived
           </button>
         </div>
 

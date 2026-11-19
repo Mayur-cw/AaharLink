@@ -161,7 +161,7 @@ export default function DonorDashboardPage() {
                   <tr key={d.id}>
                     <td>
                       <span className="badge badge--info" style={{ textTransform: 'capitalize', fontWeight: 600 }}>
-                        {d.category || d.foodCategory || 'Surplus Meals'}
+                        {d.category || d.foodCategory || 'Cooked Meals'}
                       </span>
                     </td>
                     <td>{d.description}</td>

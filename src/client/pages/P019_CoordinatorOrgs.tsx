@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
 import type { Paginated } from '../../shared/contracts.js';
@@ -18,6 +18,7 @@ interface CoordinatorOrgItem {
 
 export default function CoordinatorOrgsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,8 @@ export default function CoordinatorOrgsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Filters
-  const [stateFilter, setStateFilter] = useState('');
+  const initialStatus = searchParams.get('status') || '';
+  const [stateFilter, setStateFilter] = useState(initialStatus.toLowerCase());
   const [queryFilter, setQueryFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [sortAsc, setSortAsc] = useState(false);
@@ -164,6 +166,42 @@ export default function CoordinatorOrgsPage() {
             {errorMsg}
           </div>
         )}
+
+        {/* Quick Segmented Filter Tabs */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn btn--sm ${!stateFilter ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => setStateFilter('')}
+          >
+            🏢 All Organizations
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${stateFilter === 'pending' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => setStateFilter('pending')}
+          >
+            ⏳ Pending Review
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${stateFilter === 'verified' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => setStateFilter('verified')}
+          >
+            🟢 Verified
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm ${stateFilter === 'suspended' || stateFilter === 'rejected' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
+            onClick={() => setStateFilter('suspended')}
+          >
+            🛑 Suspended / Rejected
+          </button>
+        </div>
 
         {/* Filter bar */}
         <div className="filter-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem', padding: '1rem', background: 'var(--color-canvas)', borderRadius: 'var(--radius-sm)' }}>

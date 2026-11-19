@@ -197,7 +197,7 @@ export function Sidebar() {
                     to="/coordinator/donations"
                     end
                     className={({ isActive }) =>
-                      `app-sidebar-link ${isActive && !location.search.includes('status=Disputed') ? 'app-sidebar-link--active' : ''}`
+                      `app-sidebar-link ${isActive && !location.pathname.includes('/exceptions') ? 'app-sidebar-link--active' : ''}`
                     }
                   >
                     <div className="app-sidebar-item-left">
@@ -208,9 +208,9 @@ export function Sidebar() {
                 </li>
                 <li>
                   <NavLink
-                    to="/coordinator/donations?status=Disputed"
-                    className={() =>
-                      `app-sidebar-link ${location.search.includes('status=Disputed') ? 'app-sidebar-link--active' : ''}`
+                    to="/coordinator/exceptions"
+                    className={({ isActive }) =>
+                      `app-sidebar-link ${isActive || location.pathname.includes('/exceptions') ? 'app-sidebar-link--active' : ''}`
                     }
                   >
                     <div className="app-sidebar-item-left">
