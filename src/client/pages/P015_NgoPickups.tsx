@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { useToast } from '../context/ToastContext.js';
 import type { OwnClaimSummary, Paginated } from '../../shared/contracts.js';
 
 export default function NgoPickupsPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -18,23 +19,28 @@ export default function NgoPickupsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Filters
+  const isHistoryPath = location.pathname.includes('/history');
   const tabParam = searchParams.get('tab') || searchParams.get('view');
-  const initialFilter = tabParam === 'archived' || tabParam === 'history' ? 'archived' : tabParam === 'all' ? 'all' : 'active';
+  const initialFilter = isHistoryPath
+    ? (tabParam === 'archived' ? 'archived' : 'all')
+    : (tabParam === 'all' || tabParam === 'history' ? 'all' : tabParam === 'archived' ? 'archived' : 'active');
   const [activeArchived, setActiveArchived] = useState<'all' | 'active' | 'archived'>(initialFilter);
   const [statusFilter, setStatusFilter] = useState('');
   const [deadlineFilter, setDeadlineFilter] = useState('');
   const [sortAsc, setSortAsc] = useState(false);
 
   useEffect(() => {
+    const isHist = location.pathname.includes('/history');
     const t = searchParams.get('tab') || searchParams.get('view');
-    if (t === 'archived' || t === 'history') {
-      setActiveArchived('archived');
-    } else if (t === 'all') {
-      setActiveArchived('all');
-    } else if (t === 'active') {
-      setActiveArchived('active');
+    if (isHist) {
+      if (t === 'archived') setActiveArchived('archived');
+      else setActiveArchived('all');
+    } else {
+      if (t === 'archived') setActiveArchived('archived');
+      else if (t === 'all') setActiveArchived('all');
+      else setActiveArchived('active');
     }
-  }, [searchParams]);
+  }, [location.pathname, searchParams]);
 
   const fetchClaims = useCallback(async (targetCursor?: string) => {
     setLoading(true);
@@ -183,9 +189,10 @@ export default function NgoPickupsPage() {
           <button
             type="button"
             className={`btn btn--sm ${activeArchived === 'active' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
             onClick={() => {
               setActiveArchived('active');
-              setSearchParams({ tab: 'active' });
+              navigate('/ngo/pickups');
             }}
           >
             🚚 Active Pickups
@@ -193,9 +200,10 @@ export default function NgoPickupsPage() {
           <button
             type="button"
             className={`btn btn--sm ${activeArchived === 'all' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
             onClick={() => {
               setActiveArchived('all');
-              setSearchParams({ tab: 'all' });
+              navigate('/ngo/history');
             }}
           >
             📜 Complete History (All Active & Past)
@@ -203,9 +211,10 @@ export default function NgoPickupsPage() {
           <button
             type="button"
             className={`btn btn--sm ${activeArchived === 'archived' ? 'btn--primary' : 'btn--outline'}`}
+            style={{ borderRadius: '9999px', fontWeight: 600 }}
             onClick={() => {
               setActiveArchived('archived');
-              setSearchParams({ tab: 'archived' });
+              navigate('/ngo/history?tab=archived');
             }}
           >
             ✅ Completed Deliveries

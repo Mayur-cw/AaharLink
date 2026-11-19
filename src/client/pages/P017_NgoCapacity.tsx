@@ -293,48 +293,21 @@ export default function NgoCapacityPage() {
               </span>
             </div>
 
-            {/* Field 3: Base Station Coordinates Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label htmlFor="cap-lat" className="form-label" style={{ fontWeight: 700, fontSize: '0.875rem' }}>
-                  Base Station Latitude <span className="required-indicator">*</span>
-                </label>
-                <div className="input-with-icon-wrapper">
-                  <span className="input-leading-icon" aria-hidden="true">📍</span>
-                  <input
-                    id="cap-lat"
-                    type="number"
-                    step="0.0001"
-                    data-testid="EL-161"
-                    className="form-input"
-                    style={{ borderRadius: 'var(--radius-sm)' }}
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label htmlFor="cap-lng" className="form-label" style={{ fontWeight: 700, fontSize: '0.875rem' }}>
-                  Base Station Longitude <span className="required-indicator">*</span>
-                </label>
-                <div className="input-with-icon-wrapper">
-                  <span className="input-leading-icon" aria-hidden="true">📍</span>
-                  <input
-                    id="cap-lng"
-                    type="number"
-                    step="0.0001"
-                    data-testid="EL-162"
-                    className="form-input"
-                    style={{ borderRadius: 'var(--radius-sm)' }}
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
+            {/* Hidden Coordinates Inputs (Preserving contract IDs EL-161 & EL-162) */}
+            <input
+              id="cap-lat"
+              type="hidden"
+              data-testid="EL-161"
+              value={latitude}
+              onChange={(e) => setLatitude(e.target.value)}
+            />
+            <input
+              id="cap-lng"
+              type="hidden"
+              data-testid="EL-162"
+              value={longitude}
+              onChange={(e) => setLongitude(e.target.value)}
+            />
 
             {/* Field 4: Record Version */}
             <div className="form-group" style={{ marginBottom: '1.75rem' }}>

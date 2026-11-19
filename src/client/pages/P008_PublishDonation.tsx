@@ -357,48 +357,21 @@ export default function PublishDonationPage() {
               </div>
             </div>
 
-            {/* Row 5: Coordinates */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label htmlFor="don-lat" className="form-label" style={{ fontWeight: 700, fontSize: '0.875rem' }}>
-                  Pickup Latitude <span className="required-indicator">*</span>
-                </label>
-                <div className="input-with-icon-wrapper">
-                  <span className="input-leading-icon" aria-hidden="true">📍</span>
-                  <input
-                    id="don-lat"
-                    type="number"
-                    step="0.0001"
-                    data-testid="EL-077"
-                    className="form-input"
-                    style={{ borderRadius: 'var(--radius-sm)' }}
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label htmlFor="don-lng" className="form-label" style={{ fontWeight: 700, fontSize: '0.875rem' }}>
-                  Pickup Longitude <span className="required-indicator">*</span>
-                </label>
-                <div className="input-with-icon-wrapper">
-                  <span className="input-leading-icon" aria-hidden="true">📍</span>
-                  <input
-                    id="don-lng"
-                    type="number"
-                    step="0.0001"
-                    data-testid="EL-078"
-                    className="form-input"
-                    style={{ borderRadius: 'var(--radius-sm)' }}
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
+            {/* Hidden Coordinates Inputs (Preserving contract IDs EL-077 & EL-078) */}
+            <input
+              id="don-lat"
+              type="hidden"
+              data-testid="EL-077"
+              value={latitude}
+              onChange={(e) => setLatitude(e.target.value)}
+            />
+            <input
+              id="don-lng"
+              type="hidden"
+              data-testid="EL-078"
+              value={longitude}
+              onChange={(e) => setLongitude(e.target.value)}
+            />
 
             {/* Interactive Leaflet Staging Map matching Image 2 */}
             <CivicMap

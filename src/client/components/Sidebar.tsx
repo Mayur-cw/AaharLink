@@ -66,7 +66,7 @@ export function Sidebar() {
                     to="/ngo/pickups"
                     end
                     className={({ isActive }) =>
-                      `app-sidebar-link ${isActive ? 'app-sidebar-link--active' : ''}`
+                      `app-sidebar-link ${isActive && !location.pathname.includes('/history') && !location.search.includes('tab=all') && !location.search.includes('tab=history') ? 'app-sidebar-link--active' : ''}`
                     }
                   >
                     <div className="app-sidebar-item-left">
@@ -77,9 +77,9 @@ export function Sidebar() {
                 </li>
                 <li>
                   <NavLink
-                    to="/ngo/pickups?tab=all"
+                    to="/ngo/history"
                     className={({ isActive }) =>
-                      `app-sidebar-link ${isActive ? 'app-sidebar-link--active' : ''}`
+                      `app-sidebar-link ${isActive || location.pathname.includes('/history') || location.search.includes('tab=all') || location.search.includes('tab=history') ? 'app-sidebar-link--active' : ''}`
                     }
                   >
                     <div className="app-sidebar-item-left">
@@ -187,7 +187,7 @@ export function Sidebar() {
                     }
                   >
                     <div className="app-sidebar-item-left">
-                      <span className="app-sidebar-icon" aria-hidden="true">🏢</span>
+                      <span className="app-sidebar-icon" aria-hidden="true">🛡️</span>
                       <span>Organizations</span>
                     </div>
                   </NavLink>
@@ -195,13 +195,27 @@ export function Sidebar() {
                 <li>
                   <NavLink
                     to="/coordinator/donations"
+                    end
                     className={({ isActive }) =>
-                      `app-sidebar-link ${isActive ? 'app-sidebar-link--active' : ''}`
+                      `app-sidebar-link ${isActive && !location.search.includes('status=Disputed') ? 'app-sidebar-link--active' : ''}`
                     }
                   >
                     <div className="app-sidebar-item-left">
-                      <span className="app-sidebar-icon" aria-hidden="true">🍱</span>
+                      <span className="app-sidebar-icon" aria-hidden="true">🚚</span>
                       <span>Donations</span>
+                    </div>
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink
+                    to="/coordinator/donations?status=Disputed"
+                    className={() =>
+                      `app-sidebar-link ${location.search.includes('status=Disputed') ? 'app-sidebar-link--active' : ''}`
+                    }
+                  >
+                    <div className="app-sidebar-item-left">
+                      <span className="app-sidebar-icon" aria-hidden="true">⚠️</span>
+                      <span>Exceptions</span>
                     </div>
                   </NavLink>
                 </li>
@@ -226,8 +240,8 @@ export function Sidebar() {
                     }
                   >
                     <div className="app-sidebar-item-left">
-                      <span className="app-sidebar-icon" aria-hidden="true">📜</span>
-                      <span>Audit Trail</span>
+                      <span className="app-sidebar-icon" aria-hidden="true">🗂️</span>
+                      <span>Audit Ledger</span>
                     </div>
                   </NavLink>
                 </li>
@@ -289,18 +303,18 @@ export function Sidebar() {
           <div className="app-sidebar-org-info">
             <span style={{ fontSize: '1.25rem' }} aria-hidden="true">🏛️</span>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span className="app-sidebar-org-name" title={organization?.name || user?.email}>
-                {organization?.name || user?.email?.split('@')[0] || 'Organization'}
+              <span className="app-sidebar-org-name" title={role === 'coordinator' ? 'Civic Coordinator' : (organization?.name || user?.email)}>
+                {role === 'coordinator' ? 'Civic Coordinator' : (organization?.name || user?.email?.split('@')[0] || 'Organization')}
               </span>
               <span
                 style={{
-                  fontSize: '0.625rem',
-                  fontWeight: 700,
-                  color: 'var(--color-accent)',
-                  textTransform: 'uppercase',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  color: 'var(--color-secondary)',
+                  textTransform: role === 'coordinator' ? 'none' : 'uppercase',
                 }}
               >
-                {getRoleBadge()}
+                {role === 'coordinator' ? 'Regional Operations' : getRoleBadge()}
               </span>
             </div>
           </div>

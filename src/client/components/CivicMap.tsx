@@ -38,11 +38,11 @@ const isBrowser =
 function createCustomPinIcon(label?: string) {
   const safeText = (label || 'Location').replace(/[<>&]/g, '');
   const svg = `
-    <div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);pointer-events:none;">
-      <div style="background:#18563B;color:#ffffff;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:1.5px solid #ffffff;margin-bottom:3px;letter-spacing:0.2px;">
+    <div style="position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);pointer-events:none;">
+      <div style="background:#18563B;color:#ffffff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:1.5px solid #ffffff;margin-bottom:2px;letter-spacing:0.2px;">
         ${safeText}
       </div>
-      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35));">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35));display:block;">
         <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#18563B" stroke="#0E3926" stroke-width="1.5"/>
         <circle cx="12" cy="9" r="3.5" fill="#FFFFFF" />
       </svg>
@@ -51,8 +51,8 @@ function createCustomPinIcon(label?: string) {
   return L.divIcon({
     html: svg,
     className: 'civic-custom-pin',
-    iconSize: [34, 44],
-    iconAnchor: [17, 44],
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
     popupAnchor: [0, -44],
   });
 }
@@ -62,7 +62,7 @@ function createBatchPinIcon(portions: number, category: string, isSelected: bool
   const border = isSelected ? '#FACC15' : '#ffffff';
   const scale = isSelected ? '1.1' : '1.0';
   const svg = `
-    <div style="display:flex;align-items:center;gap:4px;background:${bg};color:#ffffff;border:2px solid ${border};border-radius:16px;padding:3px 8px;font-size:11px;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,0.25);transform:translate(-50%,-50%) scale(${scale});white-space:nowrap;cursor:pointer;">
+    <div style="position:absolute;left:0;top:0;display:flex;align-items:center;gap:4px;background:${bg};color:#ffffff;border:2px solid ${border};border-radius:16px;padding:3px 8px;font-size:11px;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,0.25);transform:translate(-50%,-50%) scale(${scale});white-space:nowrap;cursor:pointer;">
       <span>🍱</span>
       <span>${portions}p</span>
       <span style="opacity:0.85;font-size:9px;text-transform:uppercase;">${category.slice(0, 3)}</span>
@@ -71,8 +71,8 @@ function createBatchPinIcon(portions: number, category: string, isSelected: bool
   return L.divIcon({
     html: svg,
     className: 'civic-batch-pin',
-    iconSize: [60, 26],
-    iconAnchor: [30, 13],
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
     popupAnchor: [0, -13],
   });
 }

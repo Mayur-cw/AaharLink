@@ -159,6 +159,14 @@ function AppRoutes() {
                       }
                     />
                     <Route
+                      path="/ngo/history"
+                      element={
+                        <RouteGuard allowedRoles={['ngo']}>
+                          <P015_NgoPickups />
+                        </RouteGuard>
+                      }
+                    />
+                    <Route
                       path="/ngo/pickups/:id"
                       element={
                         <RouteGuard allowedRoles={['ngo']}>
