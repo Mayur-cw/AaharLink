@@ -106,7 +106,7 @@ export default function WelcomePage() {
                 type="button"
                 data-testid="EL-003"
                 className="btn btn--primary full-width"
-                onClick={() => navigate('/donor')}
+                onClick={() => navigate(isAuthenticated ? '/donor' : '/login')}
               >
                 Open donor workspace
               </button>
@@ -123,7 +123,7 @@ export default function WelcomePage() {
                 type="button"
                 data-testid="EL-004"
                 className="btn btn--primary full-width"
-                onClick={() => navigate('/ngo')}
+                onClick={() => navigate(isAuthenticated ? '/ngo' : '/login')}
               >
                 Open NGO workspace
               </button>
@@ -140,7 +140,7 @@ export default function WelcomePage() {
                 type="button"
                 data-testid="EL-005"
                 className="btn btn--primary full-width"
-                onClick={() => navigate('/coordinator')}
+                onClick={() => navigate(isAuthenticated ? '/coordinator' : '/login')}
               >
                 Open coordinator workspace
               </button>

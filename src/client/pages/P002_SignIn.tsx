@@ -35,15 +35,26 @@ export default function SignInPage() {
       toast.success(`Welcome back, ${user.email}!`);
       
       const destination = (location.state as { from?: { pathname: string } })?.from?.pathname;
-      if (destination && destination !== '/login') {
-        navigate(destination, { replace: true });
-        return;
+      if (destination && destination !== '/login' && destination !== '/') {
+        const isDonorArea = destination.startsWith('/donor');
+        const isNgoArea = destination.startsWith('/ngo');
+        const isCoordinatorArea = destination.startsWith('/coordinator');
+
+        if (
+          (isDonorArea && user.role === 'donor') ||
+          (isNgoArea && user.role === 'ngo') ||
+          (isCoordinatorArea && user.role === 'coordinator') ||
+          (!isDonorArea && !isNgoArea && !isCoordinatorArea)
+        ) {
+          navigate(destination, { replace: true });
+          return;
+        }
       }
 
-      if (user.role === 'donor') navigate('/donor');
-      else if (user.role === 'ngo') navigate('/ngo');
-      else if (user.role === 'coordinator') navigate('/coordinator');
-      else navigate('/');
+      if (user.role === 'donor') navigate('/donor', { replace: true });
+      else if (user.role === 'ngo') navigate('/ngo', { replace: true });
+      else if (user.role === 'coordinator') navigate('/coordinator', { replace: true });
+      else navigate('/', { replace: true });
     } catch (err: unknown) {
       const msg = (err as Error).message || 'Invalid email or password.';
       setErrorMsg(msg);
