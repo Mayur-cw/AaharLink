@@ -14,9 +14,9 @@ export default function SignInPage() {
   const location = useLocation();
   const toast = useToast();
 
-  const handleDemoSelect = (demoEmail: string) => {
+  const handleDemoSelect = (demoEmail: string, demoPass: string) => {
     setEmail(demoEmail);
-    setPassword('demo1234');
+    setPassword(demoPass);
     setErrorMsg(null);
   };
 
@@ -88,7 +88,7 @@ export default function SignInPage() {
               type="button"
               data-testid="EL-013"
               className="btn btn--outline btn--sm"
-              onClick={() => handleDemoSelect('donor@demo.org')}
+              onClick={() => handleDemoSelect('donor@aaharlink.example', 'DemoDonor!2026')}
             >
               Select donor demo account
             </button>
@@ -96,7 +96,7 @@ export default function SignInPage() {
               type="button"
               data-testid="EL-014"
               className="btn btn--outline btn--sm"
-              onClick={() => handleDemoSelect('ngo-a@demo.org')}
+              onClick={() => handleDemoSelect('ngo-a@aaharlink.example', 'DemoNgoA!2026')}
             >
               Select NGO A demo account
             </button>
@@ -104,7 +104,7 @@ export default function SignInPage() {
               type="button"
               data-testid="EL-015"
               className="btn btn--outline btn--sm"
-              onClick={() => handleDemoSelect('ngo-b@demo.org')}
+              onClick={() => handleDemoSelect('ngo-b@aaharlink.example', 'DemoNgoB!2026')}
             >
               Select NGO B demo account
             </button>
@@ -112,7 +112,7 @@ export default function SignInPage() {
               type="button"
               data-testid="EL-016"
               className="btn btn--outline btn--sm"
-              onClick={() => handleDemoSelect('coordinator@demo.org')}
+              onClick={() => handleDemoSelect('coordinator@aaharlink.example', 'DemoCoord!2026')}
             >
               Select coordinator demo account
             </button>
